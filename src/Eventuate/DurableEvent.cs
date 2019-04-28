@@ -143,7 +143,7 @@ namespace Eventuate
         /// Returns <c>true</c> if this event did not happen before or at the given <c>vectorTime</c>
         /// and passes the given replication <c>filter</c>.
         /// </summary>
-        public bool IsReplicable(VectorTime vectorTime, IReplicationFilter filter) => !IsBefore(vectorTime) && filter.Invoke(this);
+        public bool IsReplicable(VectorTime vectorTime, ReplicationFilter filter) => !IsBefore(vectorTime) && filter.Invoke(this);
 
         /// <summary>
         /// Returns <c>true</c> if this event happened before or at the given <paramref name="vectorTime"/>.

@@ -297,7 +297,7 @@ namespace Eventuate.ReplicationProtocol
     /// </summary>
     public sealed class ReplicationRead : ISerializable
     {
-        public ReplicationRead(long fromSequenceNr, int max, int scanLimit, IReplicationFilter filter, string targetLogId, IActorRef replicator, VectorTime currentTargetVersionVector)
+        public ReplicationRead(long fromSequenceNr, int max, int scanLimit, ReplicationFilter filter, string targetLogId, IActorRef replicator, VectorTime currentTargetVersionVector)
         {
             FromSequenceNr = fromSequenceNr;
             Max = max;
@@ -311,7 +311,7 @@ namespace Eventuate.ReplicationProtocol
         public long FromSequenceNr { get; }
         public int Max { get; }
         public int ScanLimit { get; }
-        public IReplicationFilter Filter { get; }
+        public ReplicationFilter Filter { get; }
         public string TargetLogId { get; }
         public IActorRef Replicator { get; }
         public VectorTime CurrentTargetVersionVector { get; }
@@ -322,7 +322,7 @@ namespace Eventuate.ReplicationProtocol
     /// </summary>
     public sealed class ReplicationReadSuccess : ISerializable
     {
-        public ReplicationReadSuccess(IEnumerable<DurableEvent> events, long fromSequenceNr, long replicationProgress, string targetLogId, VectorTime currentSourceVersionVector)
+        public ReplicationReadSuccess(IReadOnlyCollection<DurableEvent> events, long fromSequenceNr, long replicationProgress, string targetLogId, VectorTime currentSourceVersionVector)
         {
             Events = events;
             FromSequenceNr = fromSequenceNr;
@@ -331,7 +331,7 @@ namespace Eventuate.ReplicationProtocol
             CurrentSourceVersionVector = currentSourceVersionVector;
         }
 
-        public IEnumerable<DurableEvent> Events { get; }
+        public IReadOnlyCollection<DurableEvent> Events { get; }
         public long FromSequenceNr { get; }
         public long ReplicationProgress { get; }
         public string TargetLogId { get; }

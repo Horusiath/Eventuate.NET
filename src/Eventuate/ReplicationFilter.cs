@@ -9,95 +9,95 @@ namespace Eventuate
     /// <summary>
     /// Serializable and composable replication filter.
     /// </summary>
-    public interface IReplicationFilter : ISerializable
+    public abstract class ReplicationFilter : ISerializable
     {
         /// <summary>
         /// Evaluates this filter on the given <paramref name="durableEvent"/>.
         /// </summary>
-        bool Invoke(DurableEvent durableEvent);
+        public abstract bool Invoke(DurableEvent durableEvent);
 
         /// <summary>
         /// Returns a composed replication filter that represents a logical AND of
         /// this filter and the given <paramref name="filter"/>.
         /// </summary>
-        IReplicationFilter And(IReplicationFilter filter);
+        public virtual ReplicationFilter And(ReplicationFilter filter)
+        {
+            if (this is AndFilter f) return new AndFilter(f.Filters.Union(new[] { filter }));
+            else return new AndFilter(new[] { this, filter });
+        }
 
         /// <summary>
         /// Returns a composed replication filter that represents a logical OR of
         /// this filter and the given <paramref name="filter"/>.
         /// </summary>
-        IReplicationFilter Or(IReplicationFilter filter);
+        public virtual ReplicationFilter Or(ReplicationFilter filter)
+        {
+            if (this is OrFilter f) return new OrFilter(f.Filters.Union(new[] { filter }));
+            else return new OrFilter(new[] { this, filter });
+        }
     }
 
     /// <summary>
     /// Serializable logical AND of given `filters`.
     /// </summary>
-    internal sealed class AndFilter : IReplicationFilter
+    internal sealed class AndFilter : ReplicationFilter
     {
-        private readonly IEnumerable<IReplicationFilter> filters;
+        public IEnumerable<ReplicationFilter> Filters { get; }
 
-        public AndFilter(IEnumerable<IReplicationFilter> filters) {
-            this.filters = filters;
+        public AndFilter(IEnumerable<ReplicationFilter> filters) {
+            this.Filters = filters;
         }
 
         /// <summary>
         /// Evaluates to `true` if all `filters` evaluate to `true`, `false` otherwise.
         /// </summary>
-        public bool Invoke(DurableEvent durableEvent)
+        public override bool Invoke(DurableEvent durableEvent)
         {
-            foreach (var filter in filters)
+            foreach (var filter in Filters)
             {
                 if (!filter.Invoke(durableEvent)) return false;
             }
             return true;
         }
-
-        public IReplicationFilter And(IReplicationFilter filter) => new AndFilter(filters.Union(new[] { filter }));
-
-        public IReplicationFilter Or(IReplicationFilter filter) => new OrFilter(new[] { this, filter });
     }
 
     /// <summary>
     /// Serializable logical OR of given `filters`.
     /// </summary>
-    internal sealed class OrFilter : IReplicationFilter
+    internal sealed class OrFilter : ReplicationFilter
     {
-        private readonly IEnumerable<IReplicationFilter> filters;
+        public IEnumerable<ReplicationFilter> Filters { get; }
 
-        public OrFilter(IEnumerable<IReplicationFilter> filters)
+        public OrFilter(IEnumerable<ReplicationFilter> filters)
         {
-            this.filters = filters;
+            this.Filters = filters;
         }
 
-        public bool Invoke(DurableEvent durableEvent)
+        public override bool Invoke(DurableEvent durableEvent)
         {
-            foreach (var filter in filters)
+            foreach (var filter in Filters)
             {
                 if (filter.Invoke(durableEvent)) return true;
             }
             return false;
         }
-
-        public IReplicationFilter And(IReplicationFilter filter) => new AndFilter(new[] { this, filter });
-
-        public IReplicationFilter Or(IReplicationFilter filter) => new OrFilter(filters.Union(new[] { filter }));
     }
 
     /// <summary>
     /// Replication filter that evaluates to `true` for all events.
     /// </summary>
-    internal sealed class NoFilter : IReplicationFilter
+    internal sealed class NoFilter : ReplicationFilter
     {
         public static readonly NoFilter Instance = new NoFilter();
         private NoFilter() { }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Invoke(DurableEvent durableEvent) => true;
+        public override bool Invoke(DurableEvent durableEvent) => true;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public IReplicationFilter And(IReplicationFilter filter) => filter;
+        public override ReplicationFilter And(ReplicationFilter filter) => filter;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public IReplicationFilter Or(IReplicationFilter filter) => this;
+        public override ReplicationFilter Or(ReplicationFilter filter) => this;
     }
 }
