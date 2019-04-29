@@ -2,13 +2,16 @@
 using Akka.Configuration;
 using Akka.Event;
 using Akka.Util;
+using Eventuate.EventsourcingProtocol;
 using Eventuate.ReplicationProtocol;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading.Tasks;
 using static Eventuate.ReplicationEndpoint;
 
@@ -162,7 +165,7 @@ namespace Eventuate
                 connectors.Add(new SourceConnector(this, connection));
             }
             this.connectors = connectors.ToImmutable();
-            this.acceptor = new Lazy<IActorRef>(() => system.ActorOf(Props.Create(() => new Acceptor(this)), Acceptor.Name));
+            this.acceptor = new Lazy<IActorRef>(() => system.ActorOf(Props.Create(() => new Acceptor(this)), Eventuate.Acceptor.Name));
             var started = this.acceptor.Value;
         }
 
@@ -234,37 +237,272 @@ namespace Eventuate
                 throw new InvalidOperationException("Recovery running or endpoint already activated");
 
             var recovery = new Recovery(this);
+            var partialUpdate = false;
+            try
+            {
+                // Disaster recovery is executed in 3 steps:
+                // 1. synchronize metadata to
+                //    - reset replication progress of remote sites and
+                //    - determine after disaster progress of remote sites
+                // 2. Recover events from unfiltered links
+                // 3. Recover events from filtered links
+                // 4. Adjust the sequence numbers of local logs to their version vectors
+                // unfiltered links are recovered first to ensure that no events are recovered from a filtered connection
+                // where the causal predecessor is not yet recovered (from an unfiltered connection)
+                // as causal predecessors cannot be written after their successors to the event log.
+                // The sequence number of an event log needs to be adjusted if not all events could be
+                // recovered as otherwise it could be less then the corresponding entriy in the
+                // log's version vector
 
-            // Disaster recovery is executed in 3 steps:
-            // 1. synchronize metadata to
-            //    - reset replication progress of remote sites and
-            //    - determine after disaster progress of remote sites
-            // 2. Recover events from unfiltered links
-            // 3. Recover events from filtered links
-            // 4. Adjust the sequence numbers of local logs to their version vectors
-            // unfiltered links are recovered first to ensure that no events are recovered from a filtered connection
-            // where the causal predecessor is not yet recovered (from an unfiltered connection)
-            // as causal predecessors cannot be written after their successors to the event log.
-            // The sequence number of an event log needs to be adjusted if not all events could be
-            // recovered as otherwise it could be less then the corresponding entriy in the
-            // log's version vector
+                var localEndpointInfo = await recovery.ReadEndpointInfo();
+                LogLocalState(localEndpointInfo);
+                var recoveryLinks = await recovery.SynchronizeReplicationProgressesWithRemote(localEndpointInfo);
 
-            var localEndpointInfo = await recovery.ReadEndpointInfo();
-            LogLocalState(localEndpointInfo);
-            var recoveryLinks = await recovery.SynchronizeReplicationProgressesWithRemote(localEndpointInfo);
-            var unfilteredLinks = recoveryLinks.Where(recovery.IsFilteredLink)
+                partialUpdate = true;
+                var filteredBuilder = ImmutableHashSet.CreateBuilder<RecoveryLink>();
+                var unfilteredBuilder = ImmutableHashSet.CreateBuilder<RecoveryLink>();
+                foreach (var link in recoveryLinks)
+                {
+                    if (recovery.IsFilteredLink(link))
+                        filteredBuilder.Add(link);
+                    else
+                        unfilteredBuilder.Add(link);
+                }
+                var unfilteredLinks = unfilteredBuilder.ToImmutable();
+                var filteredLinks = filteredBuilder.ToImmutable();
+
+
+                LogLinksToBeRecovered(unfilteredLinks, "unfiltered");
+                await recovery.RecoverLinks(unfilteredLinks);
+                LogLinksToBeRecovered(filteredLinks, "filtered");
+                await recovery.RecoverLinks(filteredLinks);
+                await recovery.AdjustEventLogClocks();
+
+                Acceptor.Tell(new Acceptor.RecoveryCompleted());
+            }
+            catch (Exception cause)
+            {
+                throw new RecoveryException(cause, partialUpdate);
+            }
         }
+
+        private void LogLocalState(ReplicationEndpointInfo info)
+        {
+            if (System.Log.IsInfoEnabled)
+            {
+                System.Log.Info("Disaster recovery initiated for endpoint {0}. Sequence numbers of local logs are: {1}", info.EndpointId, SequenceNumbersLogString(info));
+                System.Log.Info("Need to reset replication progress stored at remote replicas {0}", info.EndpointId, string.Join(", ", connectors.Select(c => c.RemoteAcceptor.ToString())));
+            }
+        }
+
+        private void LogLinksToBeRecovered(ImmutableHashSet<RecoveryLink> links, string linkType)
+        {
+            if (System.Log.IsInfoEnabled)
+            {
+                var sb = new StringBuilder();
+                foreach (var l in links)
+                {
+                    sb.AppendFormat("({0} ({1} -> {2} ({3}))", l.ReplicationLink.Source.LogId, l.RemoteSequenceNr.ToString(), l.ReplicationLink.Target.LogName, l.LocalSequenceNr.ToString()).Append(", ");
+                }
+
+                System.Log.Info("Start recovery for {0} links: (from remote source log (target seq no) -> local target log (initial seq no))\n{1}", linkType, sb.ToString());
+            }
+        }
+
+        private string SequenceNumbersLogString(ReplicationEndpointInfo info)
+        {
+            var sb = new StringBuilder();
+            foreach (var (logName, sequenceNr) in info.LogSequenceNumbers)
+            {
+                sb.Append(logName).Append(':').Append(sequenceNr).Append(", ");
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Delete events from a local log identified by <paramref name="logName"/> with a sequence number less than or equal to
+        /// <paramref name="toSequenceNr"/>. Deletion is split into logical deletion and physical deletion. Logical deletion is
+        /// supported by any storage backend and ensures that deleted events are not replayed any more. It has
+        /// immediate effect. Logically deleted events can still be replicated to remote <see cref="ReplicationEndpoint"/>s.
+        /// They are only physically deleted if the storage backend supports that (currently LevelDB only). Furthermore,
+        /// physical deletion only starts after all remote replication endpoints identified by <paramref name="remoteEndpointIds"/>
+        /// have successfully replicated these events. Physical deletion is implemented as reliable background
+        /// process that survives event log restarts.
+        /// 
+        /// Use with care! When events are physically deleted they cannot be replicated any more to new replication
+        /// endpoints (i.e. those that were unknown at the time of deletion). Also, a location with deleted events
+        /// may not be suitable any more for disaster recovery of other locations.
+        /// </summary>
+        /// <param name="logName">Events are deleted from the local log with this name.</param>
+        /// <param name="toSequenceNr">Sequence number up to which events shall be deleted (inclusive).</param>
+        /// <param name="remoteEndpointIds">
+        /// A set of remote <see cref="ReplicationEndpoint"/> ids that must have replicated events
+        /// to their logs before they are allowed to be physically deleted at this endpoint.
+        /// </param>
+        /// <returns>
+        /// The sequence number up to which events have been logically deleted. When the returned task
+        /// completes logical deletion is effective. The returned sequence number can differ from the requested
+        /// one, if:
+        /// 
+        /// - the log's current sequence number is smaller than the requested number. In this case the current
+        ///  sequence number is returned.
+        /// - there was a previous successful deletion request with a higher sequence number. In this case that
+        ///  number is returned.
+        /// </returns>
+        public async Task<long> Delete(string logName, long toSequenceNr, ImmutableHashSet<string> remoteEndpointIds)
+        {
+            var remoteLogIds = remoteEndpointIds
+                .Select(id => ReplicationEndpointInfo.LogId(id, logName))
+                .ToImmutableHashSet();
+
+            var response = await Logs[logName].Ask(new Delete(toSequenceNr, remoteEndpointIds), timeout: Settings.WriteTimeout);
+            switch (response)
+            {
+                case DeleteSuccess s: return s.DeletedTo;
+                case DeleteFailure f: throw f.Cause;
+                default: throw new InvalidOperationException($"Expected either [{nameof(DeleteSuccess)}] or [{nameof(DeleteFailure)}] but got [{response.GetType().FullName}]");
+            }
+        }
+
+        /// <summary>
+        /// Activates this endpoint by starting event replication from remote endpoints to this endpoint.
+        /// </summary>
+        public void Activate()
+        {
+            if (isActive.CompareAndSet(false, true))
+            {
+                Acceptor.Tell(new Acceptor.Process());
+                foreach (var connector in connectors)
+                {
+                    connector.Activate(replicationLinks: null);
+                }
+            }
+            else throw new InvalidOperationException("Recovery running or endpoint already activated");
+        }
+
+        /// <summary>
+        /// Creates <see cref="ReplicationTarget"/> for given <paramref name="logName"/>.
+        /// </summary>
+        internal ReplicationTarget Target(string logName) => new ReplicationTarget(this, logName, LogId(logName), Logs[logName]);
+
+        /// <summary>
+        /// Returns all log names this endpoint and <paramref name="endpointInfo"/> have in common.
+        /// </summary>
+        internal ImmutableHashSet<string> CommonLogNames(ReplicationEndpointInfo endpointInfo) =>
+            this.LogNames.Intersect(endpointInfo.LogNames);
     }
 
+    /// <summary>
+    /// <see cref="IEndpointFilter"/> computes a <see cref="ReplicationFilter"/> that shall be applied to a
+    /// replication read request that replicates from a source log (defined by ``sourceLogName``)
+    /// to a target log (defined by ``targetLogId``).
+    /// </summary>
     public interface IEndpointFilter
     {
-
+        ReplicationFilter FilterFor(string targetLogId, string sourceLogName);
     }
 
     public sealed class NoFilters : IEndpointFilter
     {
         public static IEndpointFilter Instance { get; } = new NoFilters();
         private NoFilters() { }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ReplicationFilter FilterFor(string targetLogId, string sourceLogName) => NoFilter.Instance;
+    }
+
+    public static class EndpointFilters
+    {
+        private sealed class CombiningEndpointFilters : IEndpointFilter
+        {
+            private readonly ImmutableDictionary<string, ReplicationFilter> targetFilters;
+            private readonly ImmutableDictionary<string, ReplicationFilter> sourceFilters;
+            private readonly Func<ReplicationFilter, ReplicationFilter, ReplicationFilter> targetSourceCombinator;
+
+            public CombiningEndpointFilters(
+                ImmutableDictionary<string, ReplicationFilter> targetFilters,
+                ImmutableDictionary<string, ReplicationFilter> sourceFilters,
+                Func<ReplicationFilter, ReplicationFilter, ReplicationFilter> targetSourceCombinator)
+            {
+                this.targetFilters = targetFilters;
+                this.sourceFilters = sourceFilters;
+                this.targetSourceCombinator = targetSourceCombinator;
+            }
+
+            public ReplicationFilter FilterFor(string targetLogId, string sourceLogName)
+            {
+                if (targetFilters.TryGetValue(targetLogId, out var targetFilter))
+                {
+                    if (sourceFilters.TryGetValue(sourceLogName, out var sourceFilter))
+                    {
+                        return this.targetSourceCombinator(targetFilter, sourceFilter);
+                    }
+                    else return targetFilter;
+                }
+                else if (sourceFilters.TryGetValue(sourceLogName, out var sourceFilter)) return sourceFilter;
+                else return NoFilter.Instance;
+            }
+        }
+
+        private sealed class SimpleFilters : IEndpointFilter
+        {
+            private readonly ImmutableDictionary<string, ReplicationFilter> filters;
+            private readonly bool pickTarget;
+
+            public SimpleFilters(ImmutableDictionary<string, ReplicationFilter> filters, bool pickTarget)
+            {
+                this.filters = filters;
+                this.pickTarget = pickTarget;
+            }
+
+            public ReplicationFilter FilterFor(string targetLogId, string sourceLogName) => filters.GetValueOrDefault(pickTarget ? targetLogId : sourceLogName, NoFilter.Instance);
+        }
+
+        /// <summary>
+        /// An <see cref="IEndpointFilters"/> instance that always returns [[NoFilter]]
+        /// independent from source/target logs of the replication read request.
+        /// </summary>
+        public static IEndpointFilter NoFilters = Eventuate.NoFilters.Instance;
+
+        /// <summary>
+        /// Creates an <see cref="IEndpointFilter"/> instance that computes a <see cref="ReplicationFilter"/> for a replication read request
+        /// from a source log to a target log by and-combining target and source filters when given in the provided [[Map]]s.
+        /// If only source or target filter is given that is returned. If no filter is given <see cref="NoFilters"/> is returned.
+        /// A typical use case is that target specific filters are and-combined with a (default) source filter.
+        /// </summary>
+        /// <param name="targetFilters">Maps target log ids to the <see cref="ReplicationFilter"/> that shall be applied when replicating from a source log to this target log.</param>
+        /// <param name="sourceFilters">Maps source log names to the <see cref="ReplicationFilter"/> that shall be applied when replicating from this source log to any target log.</param>
+        public static IEndpointFilter TargetAndSourceFilters(ImmutableDictionary<string, ReplicationFilter> targetFilters, ImmutableDictionary<string, ReplicationFilter> sourceFilters) =>
+            new CombiningEndpointFilters(targetFilters, sourceFilters, (target, source) => target.And(source));
+
+        /// <summary>
+        /// Creates an <see cref="IEndpointFilter"/> instance that computes a <see cref="ReplicationFilter"/> for a replication read request
+        /// from a source log to a target log by returning a target filter when given in <paramref name="targetFilters"/>. If only
+        /// a source filter is given in <paramref name="sourceFilters"/> that is returned otherwise <see cref="NoFilters"/> is returned.
+        /// A typical use case is that (more privileged) remote targets may replace a (default) source filter with a target-specific filter.
+        /// </summary>
+        /// <param name="targetFilters">Maps target log ids to the <see cref="ReplicationFilter"/> that shall be applied when replicating from a source log to this target log.</param>
+        /// <param name="sourceFilters">Maps source log names to the <see cref="ReplicationFilter"/> that shall be applied when replicating from this source log to any target log.</param>
+        public static IEndpointFilter TargetOverridesSourceFilters(ImmutableDictionary<string, ReplicationFilter> targetFilters, ImmutableDictionary<string, ReplicationFilter> sourceFilters) =>
+            new CombiningEndpointFilters(targetFilters, sourceFilters, (target, source) => target);
+
+        /// <summary>
+        /// Creates an <see cref="IEndpointFilter"/> instance that computes a <see cref="ReplicationFilter"/> for a replication read request
+        /// from a source log to any target log by returning the source filter when given in <paramref name="sourceFilters"/> or
+        /// <see cref="NoFilters"/> otherwise.
+        /// </summary>
+        /// <param name="sourceFilters">Maps source log names to the <see cref="ReplicationFilter"/> that shall be applied when replicating from this source log to any target log.</param>
+        public static IEndpointFilter SourceFilters(ImmutableDictionary<string, ReplicationFilter> sourceFilters) =>
+            new SimpleFilters(sourceFilters, pickTarget: false);
+
+        /// <summary>
+        /// Creates an <see cref="IEndpointFilter"/> instance that computes a <see cref="ReplicationFilter"/> for a replication read request
+        /// to a target log by returning the target filter when given in <paramref name="targetFilters"/> or
+        /// <see cref="NoFilters"/> otherwise.
+        /// </summary>
+        /// <param name="targetFilters">Maps target log ids to the <see cref="ReplicationFilter"/> that shall be applied when replicating from a source log to this target log.</param>
+        public static IEndpointFilter TargetFilters(ImmutableDictionary<string, ReplicationFilter> targetFilters) =>
+            new SimpleFilters(targetFilters, pickTarget: true);
     }
 
     /// <summary>
@@ -343,7 +581,7 @@ namespace Eventuate
                     if (replicationLink.Source.Acceptor != RemoteAcceptor)
                         builder.Remove(replicationLink);
                 }
-                TargetEndpoint.System.ActorOf(Props.Create(() => new Connector(this, builder.ToImmutable())))
+                TargetEndpoint.System.ActorOf(Props.Create(() => new Connector(this, builder.ToImmutable())));
             }
             else TargetEndpoint.System.ActorOf(Props.Create(() => new Connector(this, null)));
         }
@@ -546,7 +784,7 @@ namespace Eventuate
             }
         }
 
-        private void Fetch() => 
+        private void Fetch() =>
             target.Log.Ask(new GetReplicationProgress(source.LogId), timeout: settings.ReadTimeout)
                 .PipeTo(Self, failure: error => new GetReplicationProgressFailure(error));
 

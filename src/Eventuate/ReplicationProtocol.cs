@@ -99,7 +99,7 @@ namespace Eventuate.ReplicationProtocol
     /// <summary>
     /// Failure response to a <see cref="SynchronizeReplicationProgress"/> request.
     /// </summary>
-    internal readonly struct SynchronizeReplicationProgressFailure : ISerializable
+    internal readonly struct SynchronizeReplicationProgressFailure : ISerializable, IFailure<SynchronizeReplicationProgressException>
     {
         public SynchronizeReplicationProgressFailure(SynchronizeReplicationProgressException cause)
         {
@@ -171,7 +171,7 @@ namespace Eventuate.ReplicationProtocol
     /// <summary>
     /// Failure reply after a <see cref="GetReplicationProgresses"/>.
     /// </summary>
-    public readonly struct GetReplicationProgressesFailure
+    public readonly struct GetReplicationProgressesFailure : IFailure<Exception>
     {
         public GetReplicationProgressesFailure(Exception cause)
         {
@@ -215,7 +215,7 @@ namespace Eventuate.ReplicationProtocol
     /// <summary>
     /// Failure reply after a <see cref="GetReplicationProgress"/>.
     /// </summary>
-    public readonly struct GetReplicationProgressFailure
+    public readonly struct GetReplicationProgressFailure : IFailure<Exception>
     {
         public GetReplicationProgressFailure(Exception cause)
         {
@@ -258,7 +258,7 @@ namespace Eventuate.ReplicationProtocol
     /// <summary>
     /// Failure reply after a <see cref="SetReplicationProgress"/>.
     /// </summary>
-    public readonly struct SetReplicationProgressFailure
+    public readonly struct SetReplicationProgressFailure : IFailure<Exception>
     {
         public SetReplicationProgressFailure(Exception cause)
         {
@@ -341,7 +341,7 @@ namespace Eventuate.ReplicationProtocol
     /// <summary>
     /// Failure reply after a <see cref="ReplicationRead"/>.
     /// </summary>
-    public sealed class ReplicationReadFailure : ISerializable
+    public sealed class ReplicationReadFailure : ISerializable, IFailure<ReplicationReadException>
     {
         public ReplicationReadFailure(ReplicationReadException cause, string targetLogId)
         {
@@ -445,7 +445,7 @@ namespace Eventuate.ReplicationProtocol
     /// <summary>
     /// Failure reply after a <see cref="ReplicationWrite"/>.
     /// </summary>
-    public readonly struct ReplicationWriteFailure
+    public readonly struct ReplicationWriteFailure : IFailure<Exception>
     {
         public ReplicationWriteFailure(Exception cause)
         {
@@ -505,7 +505,7 @@ namespace Eventuate.ReplicationProtocol
     /// <summary>
     /// Failure reply after a <see cref="AdjustEventLogClock"/>.
     /// </summary>
-    public readonly struct AdjustEventLogClockFailure
+    public readonly struct AdjustEventLogClockFailure : IFailure<Exception>
     {
         public AdjustEventLogClockFailure(Exception cause)
         {

@@ -75,7 +75,7 @@ namespace Eventuate.EventsourcingProtocol
     /// <summary>
     /// Failure reply after a <see cref="Write"/>.
     /// </summary>
-    public sealed class WriteFailure
+    public sealed class WriteFailure : IFailure<Exception>
     {
         public WriteFailure(IEnumerable<DurableEvent> events, Exception cause, int correlationId, int instanceId)
         {
@@ -148,7 +148,7 @@ namespace Eventuate.EventsourcingProtocol
     /// <summary>
     /// Failure reply after a <see cref="Replay"/>.
     /// </summary>
-    public sealed class ReplayFailure
+    public sealed class ReplayFailure : IFailure<Exception>
     {
         public ReplayFailure(Exception cause, long replayProgress, int instanceId)
         {
@@ -222,7 +222,7 @@ namespace Eventuate.EventsourcingProtocol
     /// <summary>
     /// Failure reply after a <see cref="Delete"/>.
     /// </summary>
-    public readonly struct DeleteFailure
+    public readonly struct DeleteFailure : IFailure<Exception>
     {
         public DeleteFailure(Exception cause)
         {
@@ -267,7 +267,7 @@ namespace Eventuate.EventsourcingProtocol
     /// <summary>
     ///  Failure reply after a <see cref="SaveSnapshot"/>.
     /// </summary>
-    public sealed class SaveSnapshotFailure
+    public sealed class SaveSnapshotFailure : IFailure<Exception>
     {
         public SaveSnapshotFailure(SnapshotMetadata metadata, Exception cause, int instanceId)
         {
@@ -314,7 +314,7 @@ namespace Eventuate.EventsourcingProtocol
     /// <summary>
     /// Failure reply after a <see cref="LoadSnapshot"/>.
     /// </summary>
-    public readonly struct LoadSnapshotFailure
+    public readonly struct LoadSnapshotFailure : IFailure<Exception>
     {
         public LoadSnapshotFailure(Exception cause, int instanceId)
         {
@@ -350,7 +350,7 @@ namespace Eventuate.EventsourcingProtocol
     /// <summary>
     /// Failure reply after a <see cref="DeleteSnapshots"/>.
     /// </summary>
-    public readonly struct DeleteSnapshotsFailure
+    public readonly struct DeleteSnapshotsFailure : IFailure<Exception>
     {
         public DeleteSnapshotsFailure(Exception cause)
         {
