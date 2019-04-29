@@ -21,6 +21,10 @@ namespace Eventuate.EventLogs
     public class EventLogUnavailableException : Exception
     {
         public EventLogUnavailableException(): base("Circuit breaker is open. Event log is not available right now.") { }
+
+        public EventLogUnavailableException(string message) : base(message)
+        {
+        }
     }
 
     /// <summary>
