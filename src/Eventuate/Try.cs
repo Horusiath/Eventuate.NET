@@ -1,0 +1,95 @@
+﻿using System;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+
+namespace Eventuate
+{
+    public static class Try
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Try<T> Success<T>(T value) => new Try<T>(value);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Try<T> Failure<T>(Exception exception) => new Try<T>(exception);
+    }
+
+    public readonly struct Try<T>
+    {
+        private readonly Exception exception;
+        private readonly T value;
+
+        public Try(T value)
+        {
+            this.exception = null;
+            this.value = value;
+        }
+
+        public Try(Exception exception)
+        {
+            this.exception = exception;
+            this.value = default;
+        }
+
+        internal Try(T value, Exception exception)
+        {
+            this.exception = exception;
+            this.value = value;
+        }
+
+        public bool IsSuccess
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => this.exception is null;
+        }
+
+        public bool IsFailure
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => this.exception is null;
+        }
+
+        public T Value
+        {
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            get
+            {
+                if (this.exception is null)
+                    return this.value;
+
+                throw new InvalidOperationException("Tried to get value from failed Try wrapper", this.exception);
+            }
+        }
+
+        public Exception Exception
+        {
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            get
+            {
+                if (this.exception is null)
+                    throw new InvalidOperationException("Tried to get exception from successfully resolved Try wrapper", this.exception);
+
+                return this.exception;
+            }
+        }
+
+        public bool TryGetValue(out T value)
+        {
+            if (exception is null)
+            {
+                value = this.value;
+                return true;
+            }
+            else
+            {
+                value = default;
+                return false;
+            }
+        }
+
+        public T GetValueOrDefault() => exception is null ? value : default;
+
+        public T GetValueOrDefault(T defaultValue) => exception is null ? value : defaultValue;
+
+        internal Try<T2> Cast<T2>() where T2 : T => new Try<T2>((T2)this.value, this.exception);
+    }
+}

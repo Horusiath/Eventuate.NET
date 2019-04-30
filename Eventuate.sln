@@ -5,7 +5,9 @@ VisualStudioVersion = 16.0.28822.285
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{E2F60848-D35A-4266-9E7E-1F60AAA321D9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eventuate", "src\Eventuate\Eventuate.csproj", "{0FF96330-5CB5-4907-9149-906B508C3242}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Eventuate", "src\Eventuate\Eventuate.csproj", "{0FF96330-5CB5-4907-9149-906B508C3242}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eventuate.Tests", "src\Eventuate.Tests\Eventuate.Tests.csproj", "{2991001F-D288-4039-8F8B-7099CD5822A4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,6 +19,10 @@ Global
 		{0FF96330-5CB5-4907-9149-906B508C3242}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0FF96330-5CB5-4907-9149-906B508C3242}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0FF96330-5CB5-4907-9149-906B508C3242}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2991001F-D288-4039-8F8B-7099CD5822A4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2991001F-D288-4039-8F8B-7099CD5822A4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2991001F-D288-4039-8F8B-7099CD5822A4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2991001F-D288-4039-8F8B-7099CD5822A4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

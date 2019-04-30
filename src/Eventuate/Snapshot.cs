@@ -39,6 +39,8 @@ namespace Eventuate
             hashCode = hashCode * 23 + SequenceNr.GetHashCode();
             return hashCode;
         }
+
+        public override string ToString() => $"(id: '{EmitterId}', seqNr: {SequenceNr})";
     }
 
     /// <summary>
