@@ -30,7 +30,7 @@ namespace Eventuate
     /// </summary>
     /// <seealso cref="EventsourcedView"/>
     /// <seealso cref="PersistOnEvent"/>
-    public abstract class EventsourcedActor : EventsourcedView, IEventSourcedVersion
+    public abstract class EventsourcedActor : EventsourcedView, IEventsourcedVersion
     {
         #region EventSourcedVersion
 
