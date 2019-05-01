@@ -136,7 +136,7 @@ namespace Eventuate
         /// <summary>
         /// Snapshot handler.
         /// </summary>
-        protected abstract bool OnSnapshot(object message);
+        protected virtual bool OnSnapshot(object message) => true;
 
         /// <summary>
         /// Recovery completion handler. If called with a <paramref name="failure"/>, the actor will be stopped in
@@ -235,13 +235,13 @@ namespace Eventuate
             get => this.isEventHandling;
         }
 
-        internal void Recovered()
+        internal virtual void Recovered()
         {
             isRecovering = false;
             OnRecovery(null);
         }
 
-        internal void ReceiveEvent(DurableEvent e)
+        internal virtual void ReceiveEvent(DurableEvent e)
         {
             var behavior = eventContext.Value.Current;
             var previous = lastHandledEvent;
@@ -344,10 +344,10 @@ namespace Eventuate
         /// Adds the current command to the user's command stash. Must not be used in the event handler.
         /// </summary>
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public void StashCommand()
+        public virtual void StashCommand()
         {
             if (isEventHandling)
-                throw new InvalidOperationException($"{nameof(StashCommand)} must not be used in event handler");
+                throw new StashException($"{nameof(StashCommand)} must not be used in event handler");
 
             Stash.Stash();
         }
@@ -356,7 +356,7 @@ namespace Eventuate
         /// Prepends all stashed commands to the actor's mailbox and then clears the command stash.
         /// Has no effect if the actor is recovering i.e. if <see cref="IsRecovering"/> returns `true`.
         /// </summary>
-        public void UnstashAll()
+        public virtual void UnstashAll()
         {
             if (!isRecovering)
                 Stash.UnstashAll();

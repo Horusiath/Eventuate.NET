@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using Akka.Actor;
 using Akka.Configuration;
 using Eventuate.EventsourcingProtocol;
@@ -18,13 +19,13 @@ namespace Eventuate
     }
 
     /// <summary>
-    /// An `EventsourcedActor` is an <see cref="EventsourcedView"/> that can also write new events to its event log.
-    /// New events are written with the asynchronous [[persist]] and [[persistN]] methods. They must only
-    /// be used within the `onCommand` command handler. After successful persistence, the `onEvent` handler
-    /// is automatically called with the persisted event(s). The `onEvent` handler is the place where actor
-    /// state may be updated. The `onCommand` handler should not update actor state but only read it e.g.
-    /// for command validation. `EventsourcedActor`s that want to persist new events within the `onEvent`
-    /// handler should additionally mixin the [[PersistOnEvent]] trait and use the
+    /// An <see cref="EventsourcedActor"/> is an <see cref="EventsourcedView"/> that can also write new events to its event log.
+    /// New events are written with the asynchronous <see cref="Persist"/> methods. They must only
+    /// be used within the <see cref="EventsourcedView.OnCommand(object)"/> command handler. After successful persistence, the <see cref="EventsourcedView.OnEvent(object)"/> handler
+    /// is automatically called with the persisted event(s). The <see cref="EventsourcedView.OnEvent(object)"/> handler is the place where actor
+    /// state may be updated. The <see cref="EventsourcedView.OnCommand(object)"/> handler should not update actor state but only read it e.g.
+    /// for command validation. <see cref="EventsourcedActor"/>s that want to persist new events within the <see cref="EventsourcedView.OnEvent(object)"/>
+    /// handler should additionally mixin the <see cref="PersistOnEvent"/> trait and use the
     /// [[PersistOnEvent.persistOnEvent persistOnEvent]] method.
     /// </summary>
     /// <seealso cref="EventsourcedView"/>
@@ -93,6 +94,8 @@ namespace Eventuate
         /// </summary>
         public virtual bool StateSync => true;
 
+        protected bool WritePending => writeRequests.Count != 0;
+
         /// <summary>
         /// Asynchronously persists a sequence of <paramref name="events"/> and calls <paramref name="handler"/> with the persist result
         /// for each event in the sequence. If persistence was successful, <see cref="EventsourcedView.OnEvent"/> is called with a
@@ -106,7 +109,7 @@ namespace Eventuate
         /// <see cref="EventsourcedView.AggregateId"/>. Further routing destinations can be defined with the <paramref name="customDestinationAggregateIds"/>
         /// parameter.
         /// </summary>
-        public void Persist<T>(IEnumerable<T> events, Action<Try<T>> handler, Action<Try<T>> onLast = null, ImmutableHashSet<string> customDestinationAggregateIds = null)
+        public void PersistMany<T>(IEnumerable<T> events, Action<Try<T>> handler, Action<Try<T>> onLast = null, ImmutableHashSet<string> customDestinationAggregateIds = null)
         {
             using (var enumerator = events.GetEnumerator())
             {
@@ -144,7 +147,7 @@ namespace Eventuate
         /// <see cref="EventsourcedView.AggregateId"/>. Further routing destinations can be defined with the <paramref name="customDestinationAggregateIds"/>
         /// parameter.
         /// </summary>
-        private void Persist<T>(T domainEvent, Action<Try<T>> handler, ImmutableHashSet<string> customDestinationAggregateIds = null)
+        public void Persist<T>(T domainEvent, Action<Try<T>> handler, ImmutableHashSet<string> customDestinationAggregateIds = null)
         {
             PersistDurableEvent(DurableEvent(domainEvent, customDestinationAggregateIds), attempt => handler(attempt.Cast<T>()));
         }
@@ -222,7 +225,7 @@ namespace Eventuate
                             writeRequests.Clear();
                             foreach (var invocation in poer.Invocations)
                             {
-                                writeHandlers.AddLast(PersistOnEvent.DefaultHandler);
+                                writeHandlers.AddLast(PersistOnEventActor.DefaultHandler);
                                 writeRequests.Add(DurableEvent(invocation.Event, invocation.CustomDestinationAggregateIds, null, poer.PersistOnEventSequenceNr, poer.PersistOnEventId));
                             }
                         });
@@ -235,9 +238,57 @@ namespace Eventuate
             }
         }
 
-        private void WriteOrDelay(Action body)
+        private void WriteOrDelay(Action writeRequestProducer)
         {
-            throw new NotImplementedException();
+            if (writing)
+                messageStash.Stash();
+            else
+            {
+                writeRequestProducer();
+
+                var wPending = WritePending;
+                if (wPending) Write(NextCorrelationId());
+                if (wPending && StateSync)
+                    writing = true;
+                else if (StateSync)
+                    messageStash.Unstash();
+            }
+        }
+
+        private void Write(int correlationId)
+        {
+            EventLog.Tell(new Write(writeRequests.ToArray(), Sender, Self, correlationId, InstanceId));
+            writesInProgress = writesInProgress.Add(correlationId);
+            writeRequests.Clear();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private int NextCorrelationId() => (++writeRequestCorrelationId);
+
+        /// <summary>
+        /// Adds the current command to the user's command stash. Must not be used in the event handler
+        /// or <see cref="Persist{T}(T, Action{Try{T}}, ImmutableHashSet{string})"/> handler.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public sealed override void StashCommand()
+        {
+            if (writeReplyHandling || IsEventHandling)
+                throw new StashException($"{nameof(Stash)} must not be used in event handler or persist handler");
+            else
+                commandStash.Stash();
+        }
+
+        /// <summary>
+        /// Prepends all stashed commands to the actor's mailbox and then clears the command stash.
+        /// Has no effect if the actor is recovering i.e. if <see cref="IsRecovering"/> returns `true`.
+        /// </summary>
+        public sealed override void UnstashAll()
+        {
+            if (!IsRecovering)
+            {
+                messageStash.Prepend(commandStash.ClearStash());
+                messageStash.UnstashAll();
+            }
         }
     }
 }
