@@ -314,7 +314,7 @@ namespace Eventuate
                 this.Unhandled(message);
         }
 
-        internal void Initialize()
+        internal virtual void Initialize()
         {
             var sequenceNr = ReplayFromSequenceNr;
             if (sequenceNr.HasValue)
@@ -362,7 +362,7 @@ namespace Eventuate
                 Stash.UnstashAll();
         }
 
-        internal Receive Initiating(int replayAttempts) => message =>
+        internal virtual Receive Initiating(int replayAttempts) => message =>
         {
             switch (message)
             {
@@ -459,7 +459,7 @@ namespace Eventuate
             }
         };
 
-        internal bool Initiated(object message)
+        internal virtual bool Initiated(object message)
         {
             Action<Try<SnapshotMetadata>> handler;
             switch (message)
