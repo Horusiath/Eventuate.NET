@@ -207,9 +207,10 @@ namespace Eventuate.EventsourcingProtocol
     /// 
     public readonly struct DeleteSuccess
     {
-        public DeleteSuccess(long deletedTo)
+        public DeleteSuccess(long deletedTo, ImmutableHashSet<string> remoteLogIds = null)
         {
             DeletedTo = deletedTo;
+            RemoteLogIds = remoteLogIds;
         }
 
         /// <summary>
@@ -217,6 +218,7 @@ namespace Eventuate.EventsourcingProtocol
         /// and the current sequence nr.
         /// </summary>
         public long DeletedTo { get; }
+        public ImmutableHashSet<string> RemoteLogIds { get; }
     }
 
     /// <summary>
