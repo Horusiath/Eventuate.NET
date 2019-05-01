@@ -1,4 +1,7 @@
 ﻿using Akka.Actor;
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 
 namespace Eventuate
 {
@@ -31,6 +34,80 @@ namespace Eventuate
     /// </summary>
     public abstract class ConfirmedDelivery : EventsourcedActor
     {
+        private ImmutableSortedDictionary<string, DeliveryAttempt> unconfirmed = ImmutableSortedDictionary<string, DeliveryAttempt>.Empty;
 
+        /// <summary>
+        /// Same semantics as <see cref="EventsourcedActor.Persist{T}(T, Action{Try{T}}, ImmutableHashSet{string})"/> 
+        /// plus additional storage of a <paramref name="deliveryId"/> together with the persistent <paramref name="domainEvent"/>.
+        /// </summary>
+        public void PersistConfirmation<T>(T domainEvent, string deliveryId, Action<Try<T>> handler, ImmutableHashSet<string> customDestinationAggregateIds = null)
+        {
+            var e = this.DurableEvent(domainEvent, customDestinationAggregateIds ?? ImmutableHashSet<string>.Empty, deliveryId);
+            this.PersistDurableEvent(e, attempt => handler(attempt.Cast<T>()));
+        }
+
+        /// <summary>
+        /// Delivers the given <paramref name="message"/> to a <paramref name="destination"/>. The delivery of <paramref name="message"/> is identified by
+        /// the given <paramref name="deliveryId"/> which must be unique in context of the sending actor. The message is
+        /// tracked as unconfirmed message until delivery is confirmed by persisting a confirmation event
+        /// with `persistConfirmation`, using the same `deliveryId`.
+        /// </summary>
+        public void Deliver(string deliveryId, object message, ActorPath destination)
+        {
+            unconfirmed = unconfirmed.SetItem(deliveryId, new DeliveryAttempt(deliveryId, message, destination));
+            if (!IsRecovering) Send(message, destination);
+        }
+
+        /// <summary>
+        /// Redelivers all unconfirmed messages.
+        /// </summary>
+        public void RedeliverUnconfirmed()
+        {
+            foreach (var (_, delivery) in unconfirmed)
+                Send(delivery.Message, delivery.Destination);
+        }
+
+        /// <summary>
+        /// Delivery ids of unconfirmed messages.
+        /// </summary>
+        public IEnumerable<string> Unconfirmed => unconfirmed.Keys;
+
+        private void Send(object message, ActorPath destination) => Context.ActorSelection(destination).Tell(message);
+
+        private void Confirm(string deliveryId) => unconfirmed = unconfirmed.Remove(deliveryId);
+
+        internal override void ReceiveEvent(DurableEvent e)
+        {
+            base.ReceiveEvent(e);
+            if (!(e.DeliveryId is null) && e.EmitterId == this.Id)
+                Confirm(e.DeliveryId);
+        }
+
+        internal override Snapshot SnapshotCaptured(Snapshot snapshot)
+        {
+            var s = base.SnapshotCaptured(snapshot);
+            foreach (var entry in unconfirmed)
+            {
+                s = s.AddDeliveryAttempt(entry.Value);
+            }
+            return s;
+        }
+
+        internal override void SnapshotLoaded(Snapshot snapshot)
+        {
+            base.SnapshotLoaded(snapshot);
+            var builder = unconfirmed.ToBuilder();
+            foreach (var delivery in snapshot.DeliveryAttempts)
+            {
+                builder[delivery.DeliveryId] = delivery;
+            }
+            unconfirmed = builder.ToImmutable();
+        }
+
+        internal override void Recovered()
+        {
+            base.Recovered();
+            RedeliverUnconfirmed();
+        }
     }
 }

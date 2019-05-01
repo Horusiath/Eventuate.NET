@@ -42,7 +42,7 @@ namespace Eventuate
         /// </summary>
         private void UpdateVersion(DurableEvent @event) => currentVersion = currentVersion.Merge(@event.VectorTimestamp);
 
-        private DurableEvent DurableEvent(object payload, ImmutableHashSet<string> customDestinationAggregateIds, string deliveryId = null, long? persistOnEventSequenceNr = null, EventId? persistOnEventId = null) =>
+        internal DurableEvent DurableEvent(object payload, ImmutableHashSet<string> customDestinationAggregateIds, string deliveryId = null, long? persistOnEventSequenceNr = null, EventId? persistOnEventId = null) =>
             new DurableEvent(
                 payload: payload,
                 emitterId: Id,
@@ -152,7 +152,7 @@ namespace Eventuate
             PersistDurableEvent(DurableEvent(domainEvent, customDestinationAggregateIds), attempt => handler(attempt.Cast<T>()));
         }
 
-        private void PersistDurableEvent(DurableEvent durableEvent, Action<Try<object>> handler)
+        internal void PersistDurableEvent(DurableEvent durableEvent, Action<Try<object>> handler)
         {
             writeRequests.Add(durableEvent);
             writeHandlers.AddLast(handler);
