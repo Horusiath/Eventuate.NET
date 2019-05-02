@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 
 namespace Eventuate
 {
@@ -11,6 +12,13 @@ namespace Eventuate
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Try<T> Failure<T>(Exception exception) => new Try<T>(exception);
+
+        public static Try<T> AsTry<T>(this Task<T> task)
+        {
+            if (task.IsFaulted) return Failure<T>(task.Exception);
+            if (task.IsCanceled) return Failure<T>(new TaskCanceledException(task));
+            else return Success(task.Result);
+        }
     }
 
     public readonly struct Try<T>

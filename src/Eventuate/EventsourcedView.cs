@@ -272,11 +272,7 @@ namespace Eventuate
             get => lastHandledEvent;
         }
 
-        public virtual VectorTime CurrentVersion
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => VectorTime.Zero;
-        }
+        public VectorTime CurrentVersion { get; set; } = VectorTime.Zero;
 
         internal virtual void ConditionalSend(VectorTime condition, object command) =>
             throw new ConditionalRequestException("Actor must extend ConditionalRequests to support ConditionalRequest processing");

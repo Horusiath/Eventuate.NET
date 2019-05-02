@@ -224,14 +224,20 @@ namespace Eventuate
     /// <seealso cref="EventsourcedProcessor"/>
     public abstract class StatefulProcessor : EventsourcedProcessor, IEventsourcedVersion
     {
-        //TODO: implement IEventsourcedVersion
+        internal override void SnapshotLoaded(Snapshot snapshot)
+        {
+            base.SnapshotLoaded(snapshot);
+            this.CurrentVersion = snapshot.CurrentTime;
+        }
+
+        internal override void ReceiveEventInternal(DurableEvent e)
+        {
+            base.ReceiveEventInternal(e);
+            this.UpdateVersion(e);
+        }
+
         protected override DurableEvent CreateEvent(object payload, ImmutableHashSet<string> customDestinationAggregateIds) =>
-            new DurableEvent(
-                payload: payload,
-                emitterId: Id,
-                emitterAggregateId: AggregateId,
-                customDestinationAggregateIds: customDestinationAggregateIds,
-                vectorTimestamp: CurrentVersion);
+            this.DurableEvent(payload, customDestinationAggregateIds);
 
         public override long? ReadSuccess(long progress)
         {

@@ -15,7 +15,6 @@
 
   <ItemGroup>
     <Folder Include="Crdt\Pure\" />
-    <Folder Include="Streams\" />
     <Folder Include="Serialization\" />
   </ItemGroup>
 

@@ -34,35 +34,17 @@ namespace Eventuate
     {
         #region EventSourcedVersion
 
-        private VectorTime currentVersion = VectorTime.Zero;
-        public override VectorTime CurrentVersion => currentVersion;
-
-        /// <summary>
-        /// Updates the current version from the given <paramref name="event"/>.
-        /// </summary>
-        private void UpdateVersion(DurableEvent @event) => currentVersion = currentVersion.Merge(@event.VectorTimestamp);
-
-        internal DurableEvent DurableEvent(object payload, ImmutableHashSet<string> customDestinationAggregateIds, string deliveryId = null, long? persistOnEventSequenceNr = null, EventId? persistOnEventId = null) =>
-            new DurableEvent(
-                payload: payload,
-                emitterId: Id,
-                emitterAggregateId: AggregateId,
-                customDestinationAggregateIds: customDestinationAggregateIds,
-                vectorTimestamp: CurrentVersion,
-                deliveryId: deliveryId,
-                persistOnEventSequenceNr: persistOnEventSequenceNr,
-                persistOnEventId: persistOnEventId);
 
         internal override void SnapshotLoaded(Snapshot snapshot)
         {
             base.SnapshotLoaded(snapshot);
-            currentVersion = snapshot.CurrentTime;
+            CurrentVersion = snapshot.CurrentTime;
         }
 
         internal override void ReceiveEventInternal(DurableEvent e)
         {
             base.ReceiveEventInternal(e);
-            UpdateVersion(e);
+            this.UpdateVersion(e);
         }
 
         #endregion
@@ -149,7 +131,7 @@ namespace Eventuate
         /// </summary>
         public void Persist<T>(T domainEvent, Action<Try<T>> handler, ImmutableHashSet<string> customDestinationAggregateIds = null)
         {
-            PersistDurableEvent(DurableEvent(domainEvent, customDestinationAggregateIds), attempt => handler(attempt.Cast<T>()));
+            PersistDurableEvent(this.DurableEvent(domainEvent, customDestinationAggregateIds), attempt => handler(attempt.Cast<T>()));
         }
 
         internal void PersistDurableEvent(DurableEvent durableEvent, Action<Try<object>> handler)
@@ -226,7 +208,7 @@ namespace Eventuate
                             foreach (var invocation in poer.Invocations)
                             {
                                 writeHandlers.AddLast(PersistOnEventActor.DefaultHandler);
-                                writeRequests.Add(DurableEvent(invocation.Event, invocation.CustomDestinationAggregateIds, null, poer.PersistOnEventSequenceNr, poer.PersistOnEventId));
+                                writeRequests.Add(this.DurableEvent(invocation.Event, invocation.CustomDestinationAggregateIds, null, poer.PersistOnEventSequenceNr, poer.PersistOnEventId));
                             }
                         });
                     }
