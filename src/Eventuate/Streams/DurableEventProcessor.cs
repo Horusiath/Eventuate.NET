@@ -4,6 +4,8 @@ using Akka.Streams;
 using Akka.Streams.Dsl;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
 using System.Text;
 
 namespace Eventuate.Streams
@@ -40,7 +42,7 @@ namespace Eventuate.Streams
         ///  - to transform an event, a sequence of length 1 should be returned
         ///  - to split an event, a sequence of length > 1 should be returned
         /// </param>
-        public static Flow<DurableEvent, DurableEvent, NotUsed> StatelessProcessor<TOut>(string id, IActorRef eventLog, Func<DurableEvent, IEnumerable<TOut>> logic, int batchSize = 64, TimeSpan? timeout = null) =>
+        public static Flow<DurableEvent, DurableEvent, NotUsed> StatelessProcessor<TOut>(string id, IActorRef eventLog, Func<DurableEvent, ImmutableArray<TOut>> logic, int batchSize = 64, TimeSpan? timeout = null) =>
             StatefullProcessor<Void, TOut>(id, eventLog, default, (s, e) => (s, logic(e)), batchSize, timeout);
 
         /// <summary>
@@ -72,21 +74,28 @@ namespace Eventuate.Streams
         ///  - to transform an event, a sequence of length 1 should be returned in the event part of the result
         ///  - to split an event, a sequence of length > 1 should be returned in the event part of the result
         /// </param>
-        public static Flow<DurableEvent, DurableEvent, NotUsed> StatefullProcessor<TState, TOut>(string id, IActorRef eventLog, TState zero, Func<TState, DurableEvent, (TState, IEnumerable<TOut>)> logic, int batchSize = 64, TimeSpan? timeout = null) =>
+        public static Flow<DurableEvent, DurableEvent, NotUsed> StatefullProcessor<TState, TOut>(string id, IActorRef eventLog, TState zero, Func<TState, DurableEvent, (TState, ImmutableArray<TOut>)> logic, int batchSize = 64, TimeSpan? timeout = null) =>
             Flow.FromGraph(Transformer(zero, logic))
                 .Via(new BatchWriteStage(DurableEventWriter.ReplicationBatchWriter(id, eventLog, timeout ?? DurableEventWriter.DefaultWriteTimeout)))
                 .SelectMany(e => e);
 
-        private static IGraph<FlowShape<DurableEvent, List<DurableEvent>>, NotUsed> Transformer<TState, TOut>(TState zero, Func<TState, DurableEvent, (TState, IEnumerable<TOut>)> logic)
+        private static IGraph<FlowShape<DurableEvent, ImmutableArray<DurableEvent>>, NotUsed> Transformer<TState, TOut>(TState zero, Func<TState, DurableEvent, (TState, ImmutableArray<TOut>)> logic)
         {
-            var graph = GraphDsl.Create(builder =>
+            var graph = GraphDsl.Create(b =>
             {
-                //var unzip = builder.Add(new UnzipWith<DurableEvent, DurableEvent, DurableEvent>(e => Tuple.Create(e,e)));
-                //var zip = builder.Add(new ZipWith<List<TOut>, DurableEvent, List<DurableEvent>>((payloads, e) => { payloads.Add(e); return payloads; }))
+                var unzip = b.Add(new UnzipWith<DurableEvent, DurableEvent, DurableEvent>(e => Tuple.Create(e, e)));
+                var zip = b.Add(new ZipWith<ImmutableArray<TOut>, DurableEvent, ImmutableArray<DurableEvent>>(
+                    (payloads, e) => payloads.Select(p => new DurableEvent(p, e.EmitterId, e.EmitterAggregateId, e.CustomDestinationAggregateIds, e.SystemTimestamp, e.VectorTimestamp, e.ProcessId, e.LocalLogId, e.LocalSequenceNr, e.DeliveryId, e.PersistOnEventSequenceNr, e.PersistOnEventId)).ToImmutableArray()));
 
-                //var transform = Flow.Create<DurableEvent>().Scan(() => (zero, new List<TOut>()), );
+                var transform = b.Add(Flow.Create<DurableEvent>()
+                    .Scan((zero, ImmutableArray<TOut>.Empty), ((TState, ImmutableArray<TOut>) t, DurableEvent p) => logic(t.Item1, p))
+                    .Select(t => t.Item2)
+                    .Skip(1));
 
-                //return new FlowShape<DurableEvent, List<DurableEvent>>(unzip.In, zip.Out);
+                b.From(unzip.Out0).Via(transform).To(zip.In0);
+                b.From(unzip.Out1).To(zip.In1);
+
+                return new FlowShape<DurableEvent, ImmutableArray<DurableEvent>>(unzip.In, zip.Out);
             });
 
             return graph;

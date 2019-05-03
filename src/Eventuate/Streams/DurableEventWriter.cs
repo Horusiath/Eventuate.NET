@@ -91,7 +91,7 @@ namespace Eventuate.Streams
 
         private static Flow<DurableEvent, DurableEvent, NotUsed> EmissionWriter(string id, IActorRef eventLog, int batchSize, TimeSpan timeout) =>
             Flow.Create<DurableEvent>()
-                .Batch(batchSize, e => new List<DurableEvent>(batchSize) { e }, (s, e) => { s.Add(e); return s; })
+                .Batch(batchSize, ImmutableArray.Create, (s, e) => s.Add(e))
                 .Via(new BatchWriteStage(EmissionBatchWriter(id, eventLog, timeout)))
                 .SelectMany(events => events);
 
@@ -104,25 +104,25 @@ namespace Eventuate.Streams
 
     internal delegate Task<IEnumerable<DurableEvent>> BatchWriter(IEnumerable<DurableEvent> events);
 
-    internal sealed class BatchWriteStage : GraphStage<FlowShape<List<DurableEvent>, IEnumerable<DurableEvent>>>
+    internal sealed class BatchWriteStage : GraphStage<FlowShape<ImmutableArray<DurableEvent>, IEnumerable<DurableEvent>>>
     {
-        private readonly Inlet<List<DurableEvent>> inlet = new Inlet<List<DurableEvent>>("batchWrite.in");
+        private readonly Inlet<ImmutableArray<DurableEvent>> inlet = new Inlet<ImmutableArray<DurableEvent>>("batchWrite.in");
         private readonly Outlet<IEnumerable<DurableEvent>> outlet = new Outlet<IEnumerable<DurableEvent>>("batchWrite.out");
         private readonly BatchWriter batchWriter;
 
         public BatchWriteStage(BatchWriter batchWriter)
         {
-            this.Shape = new FlowShape<List<DurableEvent>, IEnumerable<DurableEvent>>(this.inlet, this.outlet);
+            this.Shape = new FlowShape<ImmutableArray<DurableEvent>, IEnumerable<DurableEvent>>(this.inlet, this.outlet);
             this.batchWriter = batchWriter;
         }
 
-        public override FlowShape<List<DurableEvent>, IEnumerable<DurableEvent>> Shape { get; }
+        public override FlowShape<ImmutableArray<DurableEvent>, IEnumerable<DurableEvent>> Shape { get; }
 
         protected override GraphStageLogic CreateLogic(Attributes inheritedAttributes) => new Logic(this);
 
         public sealed class Logic : InAndOutGraphStageLogic
         {
-            private readonly Inlet<List<DurableEvent>> inlet;
+            private readonly Inlet<ImmutableArray<DurableEvent>> inlet;
             private readonly Outlet<IEnumerable<DurableEvent>> outlet;
             private readonly BatchWriter batchWriter;
             private readonly Action<Try<IEnumerable<DurableEvent>>> callback;
