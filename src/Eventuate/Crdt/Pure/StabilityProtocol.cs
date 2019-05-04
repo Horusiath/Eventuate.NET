@@ -24,6 +24,19 @@ namespace Eventuate.Crdt.Pure
         private readonly string localPartition;
         private readonly ImmutableDictionary<string, VectorTime> timestamps;
 
+        public Rtm(StabilitySettings settings)
+        {
+            this.localPartition = settings.LocalPartition;
+
+            var builder = ImmutableDictionary.CreateBuilder<string, VectorTime>();
+            foreach (var partition in settings.Partitions)
+            {
+                if (partition != this.localPartition)
+                    builder[partition] = VectorTime.Zero;
+            }
+            this.timestamps = builder.ToImmutable();
+        }
+
         public Rtm(string localPartition, ImmutableDictionary<string, VectorTime> timestamps)
         {
             this.localPartition = localPartition;

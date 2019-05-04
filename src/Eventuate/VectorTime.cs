@@ -2,6 +2,7 @@
 using System.Collections.Immutable;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace Eventuate
 {
@@ -73,7 +74,7 @@ namespace Eventuate
         public VectorTime Increment(string processId)
         {
             if (Value.TryGetValue(processId, out var time)) return new VectorTime(Value.SetItem(processId, time + 1));
-            else return new VectorTime((processId, 1));
+            else return new VectorTime(Value.SetItem(processId, 1));
         }
 
         public VectorTime Merge(VectorTime other)
@@ -123,6 +124,16 @@ namespace Eventuate
 
                 return hash;
             }
+        }
+
+        public override string ToString()
+        {
+            var sb = new StringBuilder('{');
+            foreach (var (processId, localTime) in this.Value)
+            {
+                sb.Append(processId).Append(':').Append(localTime).Append(',');
+            }
+            return sb.Append('}').ToString();
         }
 
         public static bool operator ==(VectorTime left, VectorTime right) => left is null ? right is null : left.Equals(right);
