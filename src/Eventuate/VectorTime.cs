@@ -14,11 +14,11 @@ namespace Eventuate
             public int? PartiallyCompare(VectorTime left, VectorTime right)
             {
                 var result = 0;
-                var allKeys = left.value.Keys.Union(right.value.Keys);
+                var allKeys = left.Value.Keys.Union(right.Value.Keys);
                 foreach (var key in allKeys)
                 {
-                    var l = left.value.GetValueOrDefault(key, 0);
-                    var r = right.value.GetValueOrDefault(key, 0);
+                    var l = left.Value.GetValueOrDefault(key, 0);
+                    var r = right.Value.GetValueOrDefault(key, 0);
                     var cmp = l.CompareTo(r);
                     if (cmp == -1) // left is lesser
                     {
@@ -40,13 +40,13 @@ namespace Eventuate
         private static PartialComparer Comparer = default;
         public static VectorTime Zero { get; } = new VectorTime();
 
-        private readonly ImmutableDictionary<string, long> value;
+        public ImmutableDictionary<string, long> Value { get; }
 
         private VectorTime() : this(ImmutableDictionary<string, long>.Empty) { }
 
         public VectorTime(ImmutableDictionary<string, long> value)
         {
-            this.value = value;
+            this.Value = value;
         }
 
         public VectorTime(params (string, long)[] values)
@@ -56,30 +56,30 @@ namespace Eventuate
             {
                 builder[k] = v;
             }
-            this.value = builder.ToImmutable();
+            this.Value = builder.ToImmutable();
         }
 
         /// <summary>
         /// Returns the local time of <paramref name="processId"/>.
         /// </summary>
-        public long this[string processId] => value.GetValueOrDefault(processId, 0);
+        public long this[string processId] => Value.GetValueOrDefault(processId, 0);
 
         public bool IsConcurrent(VectorTime other) => !Comparer.PartiallyCompare(this, other).HasValue;
 
-        public VectorTime SetLocalTime(string processId, long localTime) => new VectorTime(this.value.SetItem(processId, localTime));
+        public VectorTime SetLocalTime(string processId, long localTime) => new VectorTime(this.Value.SetItem(processId, localTime));
 
-        public VectorTime LocalCopy(string processId) => new VectorTime((processId, value.GetValueOrDefault(processId, 0)));
+        public VectorTime LocalCopy(string processId) => new VectorTime((processId, Value.GetValueOrDefault(processId, 0)));
 
         public VectorTime Increment(string processId)
         {
-            if (value.TryGetValue(processId, out var time)) return new VectorTime(value.SetItem(processId, time + 1));
+            if (Value.TryGetValue(processId, out var time)) return new VectorTime(Value.SetItem(processId, time + 1));
             else return new VectorTime((processId, 1));
         }
 
         public VectorTime Merge(VectorTime other)
         {
-            var builder = this.value.ToBuilder();
-            foreach (var (processId, timeOther) in other.value)
+            var builder = this.Value.ToBuilder();
+            foreach (var (processId, timeOther) in other.Value)
             {
                 if (builder.TryGetValue(processId, out var timeThis))
                 {
@@ -98,11 +98,11 @@ namespace Eventuate
         {
             if (ReferenceEquals(this, other)) return true;
             if (ReferenceEquals(other, null)) return false;
-            if (this.value.Count != other.value.Count) return false;
+            if (this.Value.Count != other.Value.Count) return false;
 
-            foreach (var (k1, v1) in value)
+            foreach (var (k1, v1) in Value)
             {
-                if (!other.value.TryGetValue(k1, out var v2) || v2 != v1) return false;
+                if (!other.Value.TryGetValue(k1, out var v2) || v2 != v1) return false;
             }
 
             return true;
@@ -116,7 +116,7 @@ namespace Eventuate
             unchecked
             {
                 var hash = 0;
-                foreach (var (k, v) in value)
+                foreach (var (k, v) in Value)
                 {
                     hash ^= (397 * k.GetHashCode()) * v.GetHashCode();
                 }

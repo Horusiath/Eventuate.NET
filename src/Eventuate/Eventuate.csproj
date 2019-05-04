@@ -14,7 +14,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Crdt\Pure\" />
     <Folder Include="Serialization\" />
   </ItemGroup>
 
