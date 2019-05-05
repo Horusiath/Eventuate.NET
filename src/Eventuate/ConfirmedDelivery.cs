@@ -5,7 +5,7 @@ using System.Collections.Immutable;
 
 namespace Eventuate
 {
-    public sealed class DeliveryAttempt
+    public sealed class DeliveryAttempt : IEquatable<DeliveryAttempt>
     {
         public DeliveryAttempt(string deliveryId, object message, ActorPath destination) {
             DeliveryId = deliveryId;
@@ -16,6 +16,29 @@ namespace Eventuate
         public string DeliveryId { get; }
         public object Message { get; }
         public ActorPath Destination { get; }
+
+        public bool Equals(DeliveryAttempt other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return string.Equals(DeliveryId, other.DeliveryId) && Equals(Message, other.Message) && Equals(Destination, other.Destination);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return ReferenceEquals(this, obj) || obj is DeliveryAttempt other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hashCode = (DeliveryId != null ? DeliveryId.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ (Message != null ? Message.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ (Destination != null ? Destination.GetHashCode() : 0);
+                return hashCode;
+            }
+        }
     }
 
     /// <summary>
