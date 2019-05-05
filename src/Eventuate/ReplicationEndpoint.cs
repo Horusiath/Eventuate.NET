@@ -66,7 +66,7 @@ namespace Eventuate
         /// <summary>
         /// Published to the actor system's event stream if a remote log is available.
         /// </summary>
-        public readonly struct Available
+        public readonly struct Available : System.IEquatable<Available>
         {
             public Available(string endpointId, string logName)
             {
@@ -76,12 +76,30 @@ namespace Eventuate
 
             public string EndpointId { get; }
             public string LogName { get; }
+
+            public bool Equals(Available other)
+            {
+                return Equals(EndpointId, other.EndpointId) && Equals(LogName, other.LogName);
+            }
+
+            public override bool Equals(object other)
+            {
+                return other is Available ? Equals((Available)other) : false;
+            }
+
+            public override int GetHashCode()
+            {
+                var hashCode = 17;
+                hashCode = hashCode * 23 + (EndpointId?.GetHashCode() ?? 0);
+                hashCode = hashCode * 23 + (LogName?.GetHashCode() ?? 0);
+                return hashCode;
+            }
         }
 
         /// <summary>
         /// Published to the actor system's event stream if a remote log is unavailable.
         /// </summary>
-        public readonly struct Unavailable
+        public readonly struct Unavailable : System.IEquatable<Unavailable>
         {
             public Unavailable(string endpointId, string logName, IEnumerable<Exception> causes)
             {
@@ -93,6 +111,25 @@ namespace Eventuate
             public string EndpointId { get; }
             public string LogName { get; }
             public IEnumerable<Exception> Causes { get; }
+
+            public bool Equals(Unavailable other)
+            {
+                return Equals(EndpointId, other.EndpointId) && Equals(LogName, other.LogName) && Equals(Causes, other.Causes);
+            }
+
+            public override bool Equals(object other)
+            {
+                return other is Unavailable ? Equals((Unavailable)other) : false;
+            }
+
+            public override int GetHashCode()
+            {
+                var hashCode = 17;
+                hashCode = hashCode * 23 + (EndpointId?.GetHashCode() ?? 0);
+                hashCode = hashCode * 23 + (LogName?.GetHashCode() ?? 0);
+                hashCode = hashCode * 23 + (Causes?.GetHashCode() ?? 0);
+                return hashCode;
+            }
         }
 
         #endregion

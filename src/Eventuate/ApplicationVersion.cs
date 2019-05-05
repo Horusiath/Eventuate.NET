@@ -5,7 +5,6 @@ namespace Eventuate
 {
     public readonly struct ApplicationVersion : IEquatable<ApplicationVersion>, IComparable<ApplicationVersion>
     {
-        [MethodImpl(MethodImplOptions.NoInlining)]
         public static bool TryParse(string value, out ApplicationVersion version)
         {
             if (string.IsNullOrEmpty(value))
@@ -25,6 +24,15 @@ namespace Eventuate
                 version = default;
                 return false;
             }
+        }
+
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static ApplicationVersion Parse(string value)
+        {
+            if (TryParse(value, out ApplicationVersion version)) return version;
+
+            throw new FormatException($"Cannot parse {nameof(ApplicationVersion)}: '{value}' is in invalid format.");
         }
 
         public ApplicationVersion(int major = 1, int minor = 0)
@@ -64,8 +72,10 @@ namespace Eventuate
             minor = Minor;
         }
 
-        public static bool operator <(in ApplicationVersion x, in ApplicationVersion y) => x.CompareTo(y) == -1;
-        public static bool operator >(in ApplicationVersion x, in ApplicationVersion y) => x.CompareTo(y) == 0;
+        public static bool operator <(in ApplicationVersion x, in ApplicationVersion y) => x.CompareTo(y) < 0;
+        public static bool operator >(in ApplicationVersion x, in ApplicationVersion y) => x.CompareTo(y) > 0;
+        public static bool operator <=(in ApplicationVersion x, in ApplicationVersion y) => x.CompareTo(y) <= 0;
+        public static bool operator >=(in ApplicationVersion x, in ApplicationVersion y) => x.CompareTo(y) >= 0;
         public static bool operator ==(in ApplicationVersion x, in ApplicationVersion y) => x.Equals(y);
         public static bool operator !=(in ApplicationVersion x, in ApplicationVersion y) => !x.Equals(y);
     }

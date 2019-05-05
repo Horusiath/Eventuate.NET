@@ -3,7 +3,7 @@ using FluentAssertions;
 
 namespace Eventuate.Tests
 {
-    public class VectorTimeTests
+    public class VectorTimeSpec
     {
         [Fact]
         public void A_VectorTime_must_have_zero_versions_when_created()
