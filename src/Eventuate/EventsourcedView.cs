@@ -61,7 +61,7 @@ namespace Eventuate
     /// <seealso cref="EventsourcedProcessor"/>
     public abstract class EventsourcedView : ActorBase, IWithUnboundedStash
     {
-        private static readonly AtomicCounter InstanceIdCounter = new AtomicCounter(0);
+        internal static readonly AtomicCounter InstanceIdCounter = new AtomicCounter(0);
 
         protected readonly int InstanceId = InstanceIdCounter.GetAndIncrement();
 
