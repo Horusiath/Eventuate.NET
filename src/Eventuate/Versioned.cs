@@ -93,9 +93,9 @@ namespace Eventuate
     {
         private readonly ImmutableList<Versioned<T>> versions;
 
-        public ConcurrentVersionsList(ImmutableList<Versioned<T>> versions, string owner = null)
+        public ConcurrentVersionsList(ImmutableList<Versioned<T>> versions = null, string owner = null)
         {
-            this.versions = versions;
+            this.versions = versions ?? ImmutableList<Versioned<T>>.Empty;
             this.Owner = owner ?? string.Empty;
         }
 
@@ -322,5 +322,21 @@ namespace Eventuate
         /// <param name="projection">Projection function for updates.</param>
         public static ConcurrentVersionsTree<TValue, TUpdate> Create<TValue, TUpdate>(Func<TValue, TUpdate, TValue> projection) where TValue : new() =>
             Create(new TValue(), projection);
+    }
+
+    public static class ConcurrentVersionsExtensions
+    {
+        public static IConcurrentVersions<T1, T2> Resolve<T1, T2>(this IConcurrentVersions<T1, T2> versions, VectorTime selectedTimestamp)
+        {
+            var vectorTime = VectorTime.Zero;
+            DateTime systemTime = default;
+            foreach (var versioned in versions.All)
+            {
+                vectorTime = vectorTime.Merge(versioned.VectorTimestamp);
+                systemTime = versioned.SystemTimestamp > systemTime ? versioned.SystemTimestamp : systemTime;
+            }
+
+            return versions.Resolve(selectedTimestamp, vectorTime, systemTime);
+        }
     }
 }
