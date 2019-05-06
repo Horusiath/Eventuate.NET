@@ -22,7 +22,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Crdt" />
     <Folder Include="EventLogs" />
   </ItemGroup>
 

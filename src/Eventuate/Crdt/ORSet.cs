@@ -60,6 +60,12 @@ namespace Eventuate.Crdt
         public ORSet<T> Remove(ImmutableHashSet<VectorTime> timestamps) =>
             new ORSet<T>(Versioned.Where(x => !timestamps.Contains(x.VectorTimestamp)).ToImmutableHashSet());
 
+        /// <summary>
+        /// Removes all <see cref="Versioned{T}"/> entries identified by given <paramref name="timestamps"/> 
+        /// and returns an updated <see cref="ORSet{T}"/>.
+        /// </summary>
+        public ORSet<T> Remove(params VectorTime[] timestamps) => Remove(timestamps.ToImmutableHashSet());
+
         public readonly struct Operations : ICrdtOperations<ORSet<T>, ImmutableHashSet<T>>
         {
             public ORSet<T> Zero

@@ -124,6 +124,11 @@ namespace Eventuate.Crdt
         /// </summary>
         public ORCart<T> Remove(ImmutableHashSet<VectorTime> timestamps) =>
             new ORCart<T>(inner.Remove(timestamps));
+        
+        /// <summary>
+        /// Removes all <see cref="ORCartEntry"/>s identified by given <paramref name="timestamps"/> and returns an updated <see cref="ORCart{T}"/>.
+        /// </summary>
+        public ORCart<T> Remove(params VectorTime[] timestamps) => new ORCart<T>(inner.Remove(timestamps));
 
         public readonly struct Operations : ICrdtOperations<ORCart<T>, ImmutableDictionary<T, int>>
         {

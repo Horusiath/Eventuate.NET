@@ -7,7 +7,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{E2F60848-D35
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Eventuate", "src\Eventuate\Eventuate.csproj", "{0FF96330-5CB5-4907-9149-906B508C3242}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eventuate.Tests", "src\Eventuate.Tests\Eventuate.Tests.csproj", "{2991001F-D288-4039-8F8B-7099CD5822A4}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Eventuate.Tests", "src\Eventuate.Tests\Eventuate.Tests.csproj", "{2991001F-D288-4039-8F8B-7099CD5822A4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -29,6 +29,7 @@ Global
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{0FF96330-5CB5-4907-9149-906B508C3242} = {E2F60848-D35A-4266-9E7E-1F60AAA321D9}
+		{2991001F-D288-4039-8F8B-7099CD5822A4} = {E2F60848-D35A-4266-9E7E-1F60AAA321D9}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {2F048451-F7E8-4D40-B4D0-8F54084DB384}
