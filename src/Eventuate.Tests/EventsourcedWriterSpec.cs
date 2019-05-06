@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Configuration;
@@ -156,6 +158,228 @@ namespace Eventuate.Tests
                 appProbe.ExpectMsg(err);
             }
         }
+        
+        private static VectorTime Timestamp(long a = 0, long b = 0)
+        {
+            if (a == 0 && b == 0) return VectorTime.Zero;
+            if (a == 0) return new VectorTime(("B", b));
+            if (b == 0) return new VectorTime(("A", a));
+            return new VectorTime(("A", a), ("B", b));
+        }
 
+        private static DurableEvent Event(object payload, long sequenceNr, string emitterId = null) =>
+            new DurableEvent(payload, emitterId ?? "A", null, ImmutableHashSet<string>.Empty, DateTime.MinValue,
+                Timestamp(sequenceNr), "logB", "logA", sequenceNr);
+        
+        [Fact]
+        public void EventsourcedWriter_when_recovering_must_recover_after_initial_read_with_undefined_return_value()
+        {
+            RecoveredEventsourcedWriter(null);
+        }
+
+        [Fact]
+        public void EventsourcedWriter_when_recovering_must_restart_on_failed_read_by_default()
+        {
+            var actor = UnrecoveredEventsourcedWriter();
+            ProcessRead(Try.Failure<string>(TestException.Instance));
+            ProcessRead(Try.Success("rs"));
+            ProcessLoad(actor, instanceId + 1);
+            logProbe.ExpectMsg(new Replay(actor, instanceId + 1, 1L, 2));
+            logProbe.Sender.Tell(new ReplaySuccess(Array.Empty<DurableEvent>(), 0L, instanceId + 1));
+        }
+        
+        [Fact]
+        public void EventsourcedWriter_when_recovering_must_restart_on_failed_write_by_default()
+        {
+            var actor = UnrecoveredEventsourcedWriter();
+            ProcessRead(Try.Success("rs"));
+            ProcessLoad(actor);
+            logProbe.ExpectMsg(new Replay(actor, instanceId, 1L, 2));
+            logProbe.Sender.Tell(new ReplaySuccess(new []{Event("a", 1)}, 1L, instanceId));
+            appProbe.ExpectMsg(("a", 1));
+            ProcessWrite(Try.Failure<string>(TestException.Instance));
+            ProcessRead(Try.Success("rs"));
+            
+            var next = instanceId + 1;
+            ProcessLoad(actor, next);
+            logProbe.ExpectMsg(new Replay(actor, next, 1L, 2));
+            logProbe.Sender.Tell(new ReplaySuccess(new []{Event("a", 1)}, 1L, next));
+            appProbe.ExpectMsg(("a", 1));
+            ProcessWrite(Try.Success("ws"));
+        }
+
+        [Fact]
+        public void EventsourcedWriter_when_recovering_must_trigger_writes_when_recovery_is_suspended_and_completed()
+        {
+            var actor = UnrecoveredEventsourcedWriter();
+            ProcessRead(Try.Success("rs"));
+            ProcessLoad(actor);
+            logProbe.ExpectMsg(new Replay(actor, instanceId, 1L, 2));
+            logProbe.Sender.Tell(new ReplaySuccess(new []{Event("a", 1), Event("b", 2)}, 2L, instanceId));
+            appProbe.ExpectMsg(("a", 1));
+            appProbe.ExpectMsg(("b", 2));
+            ProcessWrite(Try.Success("ws"));
+            logProbe.ExpectMsg(new Replay(actor, instanceId, 3L, 2));
+            logProbe.Sender.Tell(new ReplaySuccess(new[] {Event("c", 3)}, 3L, instanceId));
+            appProbe.ExpectMsg(("c", 3));
+            ProcessWrite(Try.Success("ws"));
+        }
+
+        [Fact]
+        public void EventsourcedWriter_when_recovering_must_stash_commands_while_read_is_in_progress()
+        {
+            var actor = UnrecoveredEventsourcedWriter();
+            actor.Tell("cmd");
+            ProcessRead(Try.Success("rs"));
+            ProcessLoad(actor);
+            ProcessReplay(actor, 1);
+            appProbe.ExpectMsg("cmd");
+        }
+        
+        [Fact]
+        public void EventsourcedWriter_when_recovering_must_retry_replay_on_failure_and_finally_succeed()
+        {
+            var actor = UnrecoveredEventsourcedWriter();
+            actor.Tell("cmd");
+            ProcessRead(Try.Success("rs"));
+            ProcessLoad(actor);
+
+            logProbe.ExpectMsg(new Replay(actor, instanceId, 1, 2));
+            logProbe.Sender.Tell(new ReplayFailure(TestException.Instance, 1L, instanceId));
+
+            logProbe.ExpectMsg(new Replay(null, instanceId, 1, 2));
+            logProbe.Sender.Tell(new ReplaySuccess(Array.Empty<DurableEvent>(), 0L, instanceId));
+
+            appProbe.ExpectMsg("cmd");
+        }
+        
+        [Fact]
+        public void EventsourcedWriter_when_recovering_must_retry_replay_on_failure_and_finally_fail()
+        {
+            var actor = UnrecoveredEventsourcedWriter();
+            Watch(actor);
+            
+            ProcessRead(Try.Success("rs"));
+            ProcessLoad(actor);
+            
+
+            logProbe.ExpectMsg(new Replay(actor, instanceId, 1, 2));
+            logProbe.Sender.Tell(new ReplayFailure(TestException.Instance, 1L, instanceId));
+            
+
+            logProbe.ExpectMsg(new Replay(actor, instanceId, 1, 2));
+            logProbe.Sender.Tell(new ReplayFailure(TestException.Instance, 1L, instanceId));
+
+            ExpectTerminated(actor);
+        }
+        
+        [Fact]
+        public void EventsourcedWriter_when_recovering_must_stash_commands_while_write_is_in_progress_after_suspended_replay()
+        {
+            var actor = UnrecoveredEventsourcedWriter();
+            ProcessRead(Try.Success("rs"));
+            ProcessLoad(actor);
+            logProbe.ExpectMsg(new Replay(actor, instanceId, 1, 2));
+            logProbe.Sender.Tell(new ReplaySuccess(new []{Event("a", 1), Event("b", 2)}, 2L, instanceId));
+            actor.Tell("cmd");
+            appProbe.ExpectMsg(("a", 1));
+            appProbe.ExpectMsg(("b", 2));
+            ProcessWrite(Try.Success("ws"));
+            logProbe.ExpectMsg(new Replay(null, instanceId, 3, 2));
+            logProbe.Sender.Tell(new ReplaySuccess(new []{ Event("c", 3)}, 3L, instanceId));
+            appProbe.ExpectMsg(("c", 3));
+            ProcessWrite(Try.Success("ws"));
+            logProbe.ExpectMsg(new Replay(null, instanceId, 4L, 2));
+            logProbe.Sender.Tell(new ReplaySuccess(Array.Empty<DurableEvent>(), 3L, instanceId));
+            appProbe.ExpectMsg("cmd");
+        }
+        
+        [Fact]
+        public void EventsourcedWriter_when_recovering_must_handle_commands_while_write_is_in_progress_after_completed_replay()
+        {
+            var actor = UnrecoveredEventsourcedWriter();
+            ProcessRead(Try.Success("rs"));
+            ProcessLoad(actor);
+            ProcessReplay(actor, 1);
+            actor.Tell("cmd");
+            appProbe.ExpectMsg("cmd");
+        }
+        
+        [Fact]
+        public void EventsourcedWriter_when_recovering_must_stop_during_write_if_its_event_log_is_stopped()
+        {
+            var actor = UnrecoveredEventsourcedWriter();
+            ProcessRead(Try.Success("rs"));
+            ProcessLoad(actor);
+            logProbe.ExpectMsg(new Replay(actor, instanceId, 1, 2));
+            logProbe.Sender.Tell(new ReplaySuccess(new []{Event("a", 1), Event("b", 2)}, 2L, instanceId));
+            appProbe.ExpectMsg(("a", 1));
+            appProbe.ExpectMsg(("b", 2));
+            rwProbe.ExpectMsg("w");
+
+            Watch(actor);
+            Sys.Stop(logProbe.Ref);
+            ExpectTerminated(actor);
+        }
+        
+        [Fact]
+        public void EventsourcedWriter_when_resuming_must_replay_after_initial_read_using_the_defined_return_value_as_starting_position()
+        {
+            RecoveredEventsourcedWriter(3);
+        }
+        
+        [Fact]
+        public void EventsourcedWriter_when_resuming_must_stop_during_write_if_its_event_log_is_stopped()
+        {
+            var actor = UnrecoveredEventsourcedWriter(1);
+            ProcessRead(Try.Success("rs"));
+            ProcessLoad(actor);
+            logProbe.ExpectMsg(new Replay(actor, instanceId, 1, 2));
+            logProbe.Sender.Tell(new ReplaySuccess(new []{Event("a", 1), Event("b", 2)}, 2L, instanceId));
+            appProbe.ExpectMsg(("a", 1));
+            appProbe.ExpectMsg(("b", 2));
+            rwProbe.ExpectMsg("w");
+            
+            Watch(actor);
+            Sys.Stop(logProbe.Ref);
+            ExpectTerminated(actor);
+        }
+        
+        [Fact]
+        public void EventsourcedWriter_when_recovered_must_handle_commands_while_write_is_in_progress()
+        {
+            var actor = ProcessRecover(UnrecoveredEventsourcedWriter());
+            actor.Tell(new Written(Event("a", 1)));    // trigger write
+            actor.Tell("cmd");
+            appProbe.ExpectMsg(("a", 1));
+            appProbe.ExpectMsg("cmd");
+            ProcessWrite(Try.Success("ws"));
+        }
+        
+        [Fact]
+        public void EventsourcedWriter_when_recovered_must_handle_events_while_write_is_in_progress()
+        {
+            var actor = ProcessRecover(UnrecoveredEventsourcedWriter());
+            actor.Tell(new Written(Event("a", 1)));    // trigger write 1
+            actor.Tell(new Written(Event("b", 2)));    // trigger write 2 (after write 1 completed)
+            
+            appProbe.ExpectMsg(("a", 1));
+            appProbe.ExpectMsg(("b", 2));
+            ProcessWrite(Try.Success("ws"));
+            ProcessWrite(Try.Success("ws"));
+        }
+        
+        [Fact]
+        public void EventsourcedWriter_when_recovered_must_stop_during_write_if_its_event_log_is_stopped()
+        {
+            var actor = ProcessRecover(UnrecoveredEventsourcedWriter());
+            actor.Tell(new Written(Event("a", 1)));    // trigger write
+            appProbe.ExpectMsg(("a", 1));
+            rwProbe.ExpectMsg("w");
+
+            Watch(actor);
+            Sys.Stop(logProbe.Ref);
+            ExpectTerminated(actor);
+        }
     }
 }
