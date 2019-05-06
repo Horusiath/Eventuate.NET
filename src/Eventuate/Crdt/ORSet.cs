@@ -112,7 +112,7 @@ namespace Eventuate.Crdt
     /// <summary>
     /// Replicated <see cref="ORSet{T}"/> CRDT service.
     /// </summary>
-    public sealed class ORSetService<T> : CrdtService<ORSet<T>, ImmutableHashSet<T>, ORSet<T>.Operations>
+    public class ORSetService<T> : CrdtService<ORSet<T>, ImmutableHashSet<T>, ORSet<T>.Operations>
     {
         public ORSetService(ActorSystem system, string serviceId, IActorRef eventLog)
         {

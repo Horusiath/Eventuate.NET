@@ -195,7 +195,7 @@ namespace Eventuate.Crdt
         public void Start()
         {
             if (manager is null)
-                manager = System.ActorOf(Props.Create(() => new CrdtManager(this.ServiceId, this.EventLog)));
+                manager = System.ActorOf(Props.Create(() => new CrdtManager(this)));
         }
 
         public void Dispose()
@@ -206,6 +206,8 @@ namespace Eventuate.Crdt
                 manager = null;
             }
         }
+        
+        protected virtual void OnChange(TCrdt crdt, object operation) {}
 
         /// <summary>
         /// Returns the current value of the CRDT identified by <paramref name="id"/>.
@@ -332,10 +334,11 @@ namespace Eventuate.Crdt
             private readonly string serviceId;
             private readonly IActorRef eventLog;
 
-            public CrdtManager(string serviceId, IActorRef eventLog)
+            public CrdtManager( CrdtService<TCrdt, TValue, TOperations> service)
             {
-                this.serviceId = serviceId;
-                this.eventLog = eventLog;
+                this.serviceId = service.ServiceId;
+                this.eventLog = service.EventLog;
+                Receive<OnChange<TCrdt>>(n => service.OnChange(n.Crdt, n.Operation));
                 Receive<IIdentified>(i => Crdt(i.Id).Forward(i));
             }
 
