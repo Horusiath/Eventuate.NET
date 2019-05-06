@@ -8,7 +8,7 @@ namespace Eventuate
     /// <summary>
     /// Records a <see cref="PersistOnEvent"/> invocation.
     /// </summary>
-    public readonly struct PersistOnEventInvocation
+    public readonly struct PersistOnEventInvocation : IEquatable<PersistOnEventInvocation>
     {
         public PersistOnEventInvocation(object @event, ImmutableHashSet<string> customDestinationAggregateIds)
         {
@@ -18,12 +18,30 @@ namespace Eventuate
 
         public object Event { get; }
         public ImmutableHashSet<string> CustomDestinationAggregateIds { get; }
+
+        public bool Equals(PersistOnEventInvocation other) => 
+            Equals(Event, other.Event) && CustomDestinationAggregateIds.SetEquals(other.CustomDestinationAggregateIds);
+        public override bool Equals(object obj) => obj is PersistOnEventInvocation other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = (Event != null ? Event.GetHashCode() : 0);
+                foreach (var id in CustomDestinationAggregateIds)
+                {
+                    hash = (hash * 397) ^ id.GetHashCode();
+                }
+
+                return hash;
+            }
+        }
     }
 
     /// <summary>
     /// A request sent by <see cref="PersistOnEvent"/> instances to <see cref="IActorContext.Self"/> in order to persist events recorded by <see cref="Invocations"/>.
     /// </summary>
-    public sealed class PersistOnEventRequest
+    public sealed class PersistOnEventRequest : IEquatable<PersistOnEventRequest>
     {
         public PersistOnEventRequest(long persistOnEventSequenceNr, EventId? persistOnEventId, ImmutableArray<PersistOnEventInvocation> invocations, int instanceId)
         {
@@ -46,6 +64,41 @@ namespace Eventuate
         public EventId? PersistOnEventId { get; }
         public ImmutableArray<PersistOnEventInvocation> Invocations { get; }
         public int InstanceId { get; }
+
+        public bool Equals(PersistOnEventRequest other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            
+            if (PersistOnEventSequenceNr != other.PersistOnEventSequenceNr) return false; 
+            if (!PersistOnEventId.Equals(other.PersistOnEventId)) return false;
+            if (InstanceId != other.InstanceId) return false;
+            if (Invocations.Length != other.Invocations.Length) return false;
+
+            for (int i = 0; i < Invocations.Length; i++)
+            {
+                if (!Equals(this.Invocations[i], other.Invocations[i])) return false;
+            }
+
+            return true;
+        }
+
+        public override bool Equals(object obj) => obj is PersistOnEventRequest e && Equals(e);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hashCode = PersistOnEventSequenceNr.GetHashCode();
+                hashCode = (hashCode * 397) ^ PersistOnEventId.GetHashCode();
+                hashCode = (hashCode * 397) ^ InstanceId;
+                foreach (var invocation in Invocations)
+                {
+                    hashCode = (hashCode * 397) ^ invocation.GetHashCode();
+                }
+                return hashCode;
+            }
+        }
     }
 
     /// <summary>
