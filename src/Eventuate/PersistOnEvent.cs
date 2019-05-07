@@ -10,10 +10,10 @@ namespace Eventuate
     /// </summary>
     public readonly struct PersistOnEventInvocation : IEquatable<PersistOnEventInvocation>
     {
-        public PersistOnEventInvocation(object @event, ImmutableHashSet<string> customDestinationAggregateIds)
+        public PersistOnEventInvocation(object @event, ImmutableHashSet<string> customDestinationAggregateIds = null)
         {
             Event = @event;
-            CustomDestinationAggregateIds = customDestinationAggregateIds;
+            CustomDestinationAggregateIds = customDestinationAggregateIds ?? ImmutableHashSet<string>.Empty;
         }
 
         public object Event { get; }
@@ -161,9 +161,9 @@ namespace Eventuate
         /// <see cref="EventsourcedView.AggregateId"/>. If this actor's <see cref="EventsourcedView.AggregateId"/> is defined it is additionally routed to all actors with the same
         /// <see cref="EventsourcedView.AggregateId"/>. Further routing destinations can be defined with the <paramref name="customDestinationAggregateIds"/> parameter.
         /// </summary>
-        public void PersistOnEvent<T>(T domainEvent, ImmutableHashSet<string> customDestinationAggregateIds)
+        public void PersistOnEvent<T>(T domainEvent, ImmutableHashSet<string> customDestinationAggregateIds = null)
         {
-            invocations.Add(new PersistOnEventInvocation(domainEvent, customDestinationAggregateIds));
+            invocations.Add(new PersistOnEventInvocation(domainEvent, customDestinationAggregateIds ?? ImmutableHashSet<string>.Empty));
         }
 
         internal override void ReceiveEvent(DurableEvent e)
