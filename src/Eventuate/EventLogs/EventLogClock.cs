@@ -9,7 +9,7 @@ namespace Eventuate.EventLogs
     /// The version vector is the merge result of vector timestamps of all events that have been
     /// written to that event log.
     /// </summary>
-    public sealed class EventLogClock
+    public sealed class EventLogClock : IEquatable<EventLogClock>
     {
         public EventLogClock(long sequenceNr = 0, VectorTime versionVector = null)
         {
@@ -37,5 +37,22 @@ namespace Eventuate.EventLogs
         /// <param name="processId"></param>
         /// <returns></returns>
         public EventLogClock AdjustSequenceNrToProcessTime(string processId) => new EventLogClock(Math.Max(SequenceNr, VersionVector[processId]), VersionVector);
+
+        public bool Equals(EventLogClock other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return SequenceNr == other.SequenceNr && Equals(VersionVector, other.VersionVector);
+        }
+
+        public override bool Equals(object obj) => ReferenceEquals(this, obj) || obj is EventLogClock other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return (SequenceNr.GetHashCode() * 397) ^ (VersionVector != null ? VersionVector.GetHashCode() : 0);
+            }
+        }
     }
 }

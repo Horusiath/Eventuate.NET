@@ -11,7 +11,7 @@ namespace Eventuate.ReplicationProtocol
     /// <summary>
     /// <see cref="ReplicationEndpoint"/> info object. Exchanged between replication endpoints to establish replication connections.
     /// </summary>
-    public readonly struct ReplicationEndpointInfo : ISerializable
+    public readonly struct ReplicationEndpointInfo : IEquatable<ReplicationEndpointInfo>, ISerializable
     {
         public ReplicationEndpointInfo(string endpointId, ImmutableDictionary<string, long> logSequenceNumbers)
         {
@@ -45,6 +45,37 @@ namespace Eventuate.ReplicationProtocol
         /// Creates a log identifier from <paramref name="endpointId"/> and <paramref name="logName"/>.
         /// </summary>
         public static string LogId(string endpointId, string logName) => $"{endpointId}_{logName}";
+
+        public bool Equals(ReplicationEndpointInfo other)
+        {
+            if (EndpointId != other.EndpointId) return false;
+            if (ReferenceEquals(LogSequenceNumbers, other.LogSequenceNumbers)) return true;
+            if (LogSequenceNumbers.Count != other.LogSequenceNumbers.Count) return false;
+
+            foreach (var pid in LogSequenceNumbers.Keys.Union(other.LogSequenceNumbers.Keys))
+            {
+                if (!LogSequenceNumbers.TryGetValue(pid, out var a) ||
+                    !other.LogSequenceNumbers.TryGetValue(pid, out var b) || a != b) return false;
+            }
+
+            return true;
+        }
+
+        public override bool Equals(object obj) => obj is ReplicationEndpointInfo other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = EndpointId.GetHashCode();
+                foreach (var (pid, seqNr) in LogSequenceNumbers)
+                {
+                    hash = (hash * 397) ^ pid.GetHashCode() ^ seqNr.GetHashCode();
+                }
+
+                return hash;
+            }
+        }
     }
 
     /// <summary>
@@ -55,7 +86,7 @@ namespace Eventuate.ReplicationProtocol
     /// <summary>
     /// Success reply to <see cref="GetReplicationEndpointInfo"/>.
     /// </summary>
-    internal readonly struct GetReplicationEndpointInfoSuccess : ISerializable
+    internal readonly struct GetReplicationEndpointInfoSuccess : IEquatable<GetReplicationEndpointInfoSuccess>, ISerializable
     {
         public GetReplicationEndpointInfoSuccess(ReplicationEndpointInfo info)
         {
@@ -63,6 +94,10 @@ namespace Eventuate.ReplicationProtocol
         }
 
         public ReplicationEndpointInfo Info { get; }
+
+        public bool Equals(GetReplicationEndpointInfoSuccess other) => Info.Equals(other.Info);
+        public override bool Equals(object obj) => obj is GetReplicationEndpointInfoSuccess other && Equals(other);
+        public override int GetHashCode() => Info.GetHashCode();
     }
 
     /// <summary>
@@ -73,7 +108,7 @@ namespace Eventuate.ReplicationProtocol
     /// - reset locally stored replication progress according to the sequence numbers given in <see cref="Info"/> and
     /// - respond with a <see cref="ReplicationEndpoint"/> containing the after disaster progress of its logs
     /// </summary>
-    internal readonly struct SynchronizeReplicationProgress : ISerializable
+    internal readonly struct SynchronizeReplicationProgress : IEquatable<SynchronizeReplicationProgress>, ISerializable
     {
         public SynchronizeReplicationProgress(ReplicationEndpointInfo info)
         {
@@ -81,12 +116,16 @@ namespace Eventuate.ReplicationProtocol
         }
 
         public ReplicationEndpointInfo Info { get; }
+
+        public bool Equals(SynchronizeReplicationProgress other) => Info.Equals(other.Info);
+        public override bool Equals(object obj) => obj is SynchronizeReplicationProgress other && Equals(other);
+        public override int GetHashCode() => Info.GetHashCode();
     }
 
     /// <summary>
     /// Successful response to a <see cref="SynchronizeReplicationProgress"/> request.
     /// </summary>
-    internal readonly struct SynchronizeReplicationProgressSuccess : ISerializable
+    internal readonly struct SynchronizeReplicationProgressSuccess : IEquatable<SynchronizeReplicationProgressSuccess>, ISerializable
     {
         public SynchronizeReplicationProgressSuccess(ReplicationEndpointInfo info)
         {
@@ -94,12 +133,16 @@ namespace Eventuate.ReplicationProtocol
         }
 
         public ReplicationEndpointInfo Info { get; }
+
+        public bool Equals(SynchronizeReplicationProgressSuccess other) => Info.Equals(other.Info);
+        public override bool Equals(object obj) => obj is SynchronizeReplicationProgressSuccess other && Equals(other);
+        public override int GetHashCode() => Info.GetHashCode();
     }
 
     /// <summary>
     /// Failure response to a <see cref="SynchronizeReplicationProgress"/> request.
     /// </summary>
-    internal readonly struct SynchronizeReplicationProgressFailure : ISerializable, IFailure<SynchronizeReplicationProgressException>
+    internal readonly struct SynchronizeReplicationProgressFailure : ISerializable, IEquatable<SynchronizeReplicationProgressFailure>, IFailure<SynchronizeReplicationProgressException>
     {
         public SynchronizeReplicationProgressFailure(SynchronizeReplicationProgressException cause)
         {
@@ -107,6 +150,10 @@ namespace Eventuate.ReplicationProtocol
         }
 
         public SynchronizeReplicationProgressException Cause { get; }
+
+        public bool Equals(SynchronizeReplicationProgressFailure other) => Equals(Cause, other.Cause);
+        public override bool Equals(object obj) => obj is SynchronizeReplicationProgressFailure other && Equals(other);
+        public override int GetHashCode() => (Cause != null ? Cause.GetHashCode() : 0);
     }
 
     /// <summary>
@@ -140,7 +187,7 @@ namespace Eventuate.ReplicationProtocol
     /// <summary>
     /// Success reply after a <see cref="GetEventLogClock"/>.
     /// </summary>
-    public readonly struct GetEventLogClockSuccess
+    public readonly struct GetEventLogClockSuccess : IEquatable<GetEventLogClockSuccess>
     {
         public GetEventLogClockSuccess(EventLogClock clock)
         {
@@ -148,6 +195,10 @@ namespace Eventuate.ReplicationProtocol
         }
 
         public EventLogClock Clock { get; }
+
+        public bool Equals(GetEventLogClockSuccess other) => Equals(Clock, other.Clock);
+        public override bool Equals(object obj) => obj is GetEventLogClockSuccess other && Equals(other);
+        public override int GetHashCode() => Clock.GetHashCode();
     }
 
     /// <summary>
@@ -159,19 +210,49 @@ namespace Eventuate.ReplicationProtocol
     /// <summary>
     /// Success reply after a <see cref="GetReplicationProgresses"/>.
     /// </summary>
-    public readonly struct GetReplicationProgressesSuccess
+    public readonly struct GetReplicationProgressesSuccess : IEquatable<GetReplicationProgressesSuccess>
     {
         public GetReplicationProgressesSuccess(ImmutableDictionary<string, long> progresses) {
             Progresses = progresses;
         }
 
         public ImmutableDictionary<string, long> Progresses { get; }
+
+        public bool Equals(GetReplicationProgressesSuccess other)
+        {
+            if (ReferenceEquals(Progresses, other.Progresses)) return true;
+            if (Progresses.Count != other.Progresses.Count) return false;
+
+            foreach (var pid in Progresses.Keys.Union(other.Progresses.Keys))
+            {
+                if (!Progresses.TryGetValue(pid, out var a) ||
+                    !other.Progresses.TryGetValue(pid, out var b) || a != b) return false;
+            }
+
+            return true;
+        }
+
+        public override bool Equals(object obj) => obj is GetReplicationProgressesSuccess other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = 0;
+                foreach (var (pid, seqNr) in Progresses)
+                {
+                    hash = (hash * 397) ^ pid.GetHashCode() ^ seqNr.GetHashCode();
+                }
+
+                return hash;
+            }
+        }
     }
 
     /// <summary>
     /// Failure reply after a <see cref="GetReplicationProgresses"/>.
     /// </summary>
-    public readonly struct GetReplicationProgressesFailure : IFailure<Exception>
+    public readonly struct GetReplicationProgressesFailure : IFailure<Exception>, IEquatable<GetReplicationProgressesFailure>
     {
         public GetReplicationProgressesFailure(Exception cause)
         {
@@ -179,13 +260,17 @@ namespace Eventuate.ReplicationProtocol
         }
 
         public Exception Cause { get; }
+
+        public bool Equals(GetReplicationProgressesFailure other) => Equals(Cause, other.Cause);
+        public override bool Equals(object obj) => obj is GetReplicationProgressesFailure other && Equals(other);
+        public override int GetHashCode() => (Cause != null ? Cause.GetHashCode() : 0);
     }
 
     /// <summary>
     /// Requests the local replication progress for given <see cref="SourceLogId"/> from a target log.
     /// </summary>
     /// <seealso cref="GetReplicationProgresses"/>
-    public readonly struct GetReplicationProgress
+    public readonly struct GetReplicationProgress : IEquatable<GetReplicationProgress>
     {
         public GetReplicationProgress(string sourceLogId)
         {
@@ -193,12 +278,16 @@ namespace Eventuate.ReplicationProtocol
         }
 
         public string SourceLogId { get; }
+
+        public bool Equals(GetReplicationProgress other) => string.Equals(SourceLogId, other.SourceLogId);
+        public override bool Equals(object obj) => obj is GetReplicationProgress other && Equals(other);
+        public override int GetHashCode() => (SourceLogId != null ? SourceLogId.GetHashCode() : 0);
     }
 
     /// <summary>
     /// Success reply after a <see cref="GetReplicationProgress"/>.
     /// </summary>
-    public sealed class GetReplicationProgressSuccess
+    public sealed class GetReplicationProgressSuccess : IEquatable<GetReplicationProgressSuccess>
     {
         public GetReplicationProgressSuccess(string sourceLogId, long storedReplicationProgress, VectorTime currentTargetVersionVector)
         {
@@ -210,12 +299,34 @@ namespace Eventuate.ReplicationProtocol
         public string SourceLogId { get; }
         public long StoredReplicationProgress { get; }
         public VectorTime CurrentTargetVersionVector { get; }
+
+        public bool Equals(GetReplicationProgressSuccess other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return string.Equals(SourceLogId, other.SourceLogId) 
+                   && StoredReplicationProgress == other.StoredReplicationProgress 
+                   && Equals(CurrentTargetVersionVector, other.CurrentTargetVersionVector);
+        }
+
+        public override bool Equals(object obj) => ReferenceEquals(this, obj) || obj is GetReplicationProgressSuccess other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hashCode = (SourceLogId != null ? SourceLogId.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ StoredReplicationProgress.GetHashCode();
+                hashCode = (hashCode * 397) ^ CurrentTargetVersionVector.GetHashCode();
+                return hashCode;
+            }
+        }
     }
 
     /// <summary>
     /// Failure reply after a <see cref="GetReplicationProgress"/>.
     /// </summary>
-    public readonly struct GetReplicationProgressFailure : IFailure<Exception>
+    public readonly struct GetReplicationProgressFailure : IFailure<Exception>, IEquatable<GetReplicationProgressFailure>
     {
         public GetReplicationProgressFailure(Exception cause)
         {
@@ -223,12 +334,16 @@ namespace Eventuate.ReplicationProtocol
         }
 
         public Exception Cause { get; }
+
+        public bool Equals(GetReplicationProgressFailure other) => Equals(Cause, other.Cause);
+        public override bool Equals(object obj) => obj is GetReplicationProgressFailure other && Equals(other);
+        public override int GetHashCode() => (Cause != null ? Cause.GetHashCode() : 0);
     }
 
     /// <summary>
     /// Requests a target log to set the given <see cref="ReplicationProgress"/> for <see cref="SourceLogId"/>.
     /// </summary>
-    public readonly struct SetReplicationProgress
+    public readonly struct SetReplicationProgress : IEquatable<SetReplicationProgress>
     {
         public SetReplicationProgress(string sourceLogId, long replicationProgress)
         {
@@ -238,12 +353,23 @@ namespace Eventuate.ReplicationProtocol
 
         public string SourceLogId { get; }
         public long ReplicationProgress { get; }
+
+        public bool Equals(SetReplicationProgress other) => string.Equals(SourceLogId, other.SourceLogId) && ReplicationProgress == other.ReplicationProgress;
+        public override bool Equals(object obj) => obj is SetReplicationProgress other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return ((SourceLogId != null ? SourceLogId.GetHashCode() : 0) * 397) ^ ReplicationProgress.GetHashCode();
+            }
+        }
     }
 
     /// <summary>
     /// Success reply after a <see cref="SetReplicationProgress"/>.
     /// </summary>
-    public readonly struct SetReplicationProgressSuccess
+    public readonly struct SetReplicationProgressSuccess : IEquatable<SetReplicationProgressSuccess>
     {
         public SetReplicationProgressSuccess(string sourceLogId, long storedReplicationProgress)
         {
@@ -253,12 +379,24 @@ namespace Eventuate.ReplicationProtocol
 
         public string SourceLogId { get; }
         public long StoredReplicationProgress { get; }
+
+        public bool Equals(SetReplicationProgressSuccess other) => string.Equals(SourceLogId, other.SourceLogId) && StoredReplicationProgress == other.StoredReplicationProgress;
+
+        public override bool Equals(object obj) => obj is SetReplicationProgressSuccess other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return ((SourceLogId != null ? SourceLogId.GetHashCode() : 0) * 397) ^ StoredReplicationProgress.GetHashCode();
+            }
+        }
     }
 
     /// <summary>
     /// Failure reply after a <see cref="SetReplicationProgress"/>.
     /// </summary>
-    public readonly struct SetReplicationProgressFailure : IFailure<Exception>
+    public readonly struct SetReplicationProgressFailure : IFailure<Exception>, IEquatable<SetReplicationProgressFailure>
     {
         public SetReplicationProgressFailure(Exception cause)
         {
@@ -266,13 +404,17 @@ namespace Eventuate.ReplicationProtocol
         }
 
         public Exception Cause { get; }
+
+        public bool Equals(SetReplicationProgressFailure other) => Equals(Cause, other.Cause);
+        public override bool Equals(object obj) => obj is SetReplicationProgressFailure other && Equals(other);
+        public override int GetHashCode() => (Cause != null ? Cause.GetHashCode() : 0);
     }
 
     /// <summary>
     /// <see cref="ReplicationRead"/> requests are sent within this envelope to allow a remote acceptor to
     /// dispatch the request to the appropriate log.
     /// </summary>
-    public sealed class ReplicationReadEnvelope : ISerializable
+    public sealed class ReplicationReadEnvelope : ISerializable, IEquatable<ReplicationReadEnvelope>
     {
         public ReplicationReadEnvelope(ReplicationRead payload, string logName, string targetApplicationName, ApplicationVersion targetApplicationVersion)
         {
@@ -289,6 +431,30 @@ namespace Eventuate.ReplicationProtocol
 
         public bool IncompatibleWith(string sourceApplicationName, ApplicationVersion sourceApplicationVersion) =>
             TargetApplicationName == sourceApplicationName && TargetApplicationVersion < sourceApplicationVersion;
+
+        public bool Equals(ReplicationReadEnvelope other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return Equals(Payload, other.Payload) 
+                   && string.Equals(LogName, other.LogName) 
+                   && string.Equals(TargetApplicationName, other.TargetApplicationName) 
+                   && TargetApplicationVersion.Equals(other.TargetApplicationVersion);
+        }
+
+        public override bool Equals(object obj) => ReferenceEquals(this, obj) || obj is ReplicationReadEnvelope other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hashCode = (Payload != null ? Payload.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ (LogName != null ? LogName.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ (TargetApplicationName != null ? TargetApplicationName.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ TargetApplicationVersion.GetHashCode();
+                return hashCode;
+            }
+        }
     }
 
     /// <summary>
@@ -320,7 +486,7 @@ namespace Eventuate.ReplicationProtocol
     /// <summary>
     /// Success reply after a <see cref="ReplicationRead"/>.
     /// </summary>
-    public sealed class ReplicationReadSuccess : ISerializable
+    public sealed class ReplicationReadSuccess : ISerializable, IEquatable<ReplicationReadSuccess>
     {
         public ReplicationReadSuccess(IReadOnlyCollection<DurableEvent> events, long fromSequenceNr, long replicationProgress, string targetLogId, VectorTime currentSourceVersionVector)
         {
@@ -336,12 +502,41 @@ namespace Eventuate.ReplicationProtocol
         public long ReplicationProgress { get; }
         public string TargetLogId { get; }
         public VectorTime CurrentSourceVersionVector { get; }
+
+        public bool Equals(ReplicationReadSuccess other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return FromSequenceNr == other.FromSequenceNr
+                   && ReplicationProgress == other.ReplicationProgress
+                   && string.Equals(TargetLogId, other.TargetLogId)
+                   && Equals(CurrentSourceVersionVector, other.CurrentSourceVersionVector)
+                   && Events.CollectionEquals(other.Events);
+        }
+        
+        public override bool Equals(object obj) => ReferenceEquals(this, obj) || obj is ReplicationReadSuccess other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hashCode = FromSequenceNr.GetHashCode();
+                hashCode = (hashCode * 397) ^ ReplicationProgress.GetHashCode();
+                hashCode = (hashCode * 397) ^ (TargetLogId != null ? TargetLogId.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ (CurrentSourceVersionVector != null ? CurrentSourceVersionVector.GetHashCode() : 0);
+                foreach (var e in Events)
+                {
+                    hashCode = (hashCode * 397) ^ e.GetHashCode();
+                }
+                return hashCode;
+            }
+        }
     }
 
     /// <summary>
     /// Failure reply after a <see cref="ReplicationRead"/>.
     /// </summary>
-    public sealed class ReplicationReadFailure : ISerializable, IFailure<ReplicationReadException>
+    public sealed class ReplicationReadFailure : ISerializable, IFailure<ReplicationReadException>, IEquatable<ReplicationReadFailure>
     {
         public ReplicationReadFailure(ReplicationReadException cause, string targetLogId)
         {
@@ -351,19 +546,40 @@ namespace Eventuate.ReplicationProtocol
 
         public ReplicationReadException Cause { get; }
         public string TargetLogId { get; }
+
+        public bool Equals(ReplicationReadFailure other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return Equals(Cause, other.Cause) && string.Equals(TargetLogId, other.TargetLogId);
+        }
+
+        public override bool Equals(object obj) => ReferenceEquals(this, obj) || obj is ReplicationReadFailure other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return ((Cause != null ? Cause.GetHashCode() : 0) * 397) ^ (TargetLogId != null ? TargetLogId.GetHashCode() : 0);
+            }
+        }
     }
 
     /// <summary>
     /// Instructs an event log to batch-execute the given <see cref="Writes"/>.
     /// </summary>
-    public readonly struct ReplicationWriteMany
+    public readonly struct ReplicationWriteMany : IEquatable<ReplicationWriteMany>
     {
-        public ReplicationWriteMany(IEnumerable<ReplicationWrite> writes)
+        public ReplicationWriteMany(IReadOnlyCollection<ReplicationWrite> writes)
         {
             Writes = writes;
         }
 
-        public IEnumerable<ReplicationWrite> Writes { get; }
+        public IReadOnlyCollection<ReplicationWrite> Writes { get; }
+
+        public bool Equals(ReplicationWriteMany other) => Writes.CollectionEquals(other.Writes);
+        public override bool Equals(object obj) => obj is ReplicationWriteMany other && Equals(other);
+        public override int GetHashCode() => Writes.GetCollectionHashCode();
     }
 
     /// <summary>
@@ -374,7 +590,7 @@ namespace Eventuate.ReplicationProtocol
     /// <summary>
     /// Source-scoped replication metadata.
     /// </summary>
-    public readonly struct ReplicationMetadata
+    public readonly struct ReplicationMetadata : IEquatable<ReplicationMetadata>
     {
         public ReplicationMetadata(long replicationProgress, VectorTime currentVersionVector)
         {
@@ -395,13 +611,23 @@ namespace Eventuate.ReplicationProtocol
 
         public ReplicationMetadata WithVersionVector(VectorTime versionVector) =>
             new ReplicationMetadata(ReplicationProgress, versionVector);
+
+        public bool Equals(ReplicationMetadata other) => ReplicationProgress == other.ReplicationProgress && Equals(CurrentVersionVector, other.CurrentVersionVector);
+        public override bool Equals(object obj) => obj is ReplicationMetadata other && Equals(other);
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return (ReplicationProgress.GetHashCode() * 397) ^ (CurrentVersionVector != null ? CurrentVersionVector.GetHashCode() : 0);
+            }
+        }
     }
 
     /// <summary>
     /// Instructs a target log to write replicated `events` from one or more source logs along with the latest read
     /// positions in the source logs.
     /// </summary>
-    public sealed class ReplicationWrite : IUpdateableEventBatch<ReplicationWrite>
+    public sealed class ReplicationWrite : IUpdateableEventBatch<ReplicationWrite>, IEquatable<ReplicationWrite>
     {
         public ReplicationWrite(IReadOnlyCollection<DurableEvent> events, ImmutableDictionary<string, ReplicationMetadata> metadata, bool continueReplication = false, IActorRef replyTo = null)
         {
@@ -423,29 +649,77 @@ namespace Eventuate.ReplicationProtocol
         public ReplicationWrite Update(params DurableEvent[] events) => new ReplicationWrite(events, Metadata, ContinueReplication, ReplyTo);
         public ReplicationWrite WithReplyToDefault(IActorRef replyTo) => this.ReplyTo is null ? new ReplicationWrite(Events, Metadata, ContinueReplication, replyTo) : this;
 
+        public bool Equals(ReplicationWrite other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return ContinueReplication == other.ContinueReplication
+                   && Equals(ReplyTo, other.ReplyTo)
+                   && Events.CollectionEquals(other.Events)
+                   && Metadata.DictionaryEquals(other.Metadata);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return ReferenceEquals(this, obj) || obj is ReplicationWrite other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hashCode = Events.GetCollectionHashCode();
+                hashCode = (hashCode * 397) ^ Metadata.GetDictionaryHashCode();
+                hashCode = (hashCode * 397) ^ ContinueReplication.GetHashCode();
+                hashCode = (hashCode * 397) ^ (ReplyTo != null ? ReplyTo.GetHashCode() : 0);
+                return hashCode;
+            }
+        }
     }
 
     /// <summary>
     /// Success reply after a <see cref="ReplicationWrite"/>.
     /// </summary>
-    public sealed class ReplicationWriteSuccess
+    public sealed class ReplicationWriteSuccess : IEquatable<ReplicationWriteSuccess>
     {
-        public ReplicationWriteSuccess(IEnumerable<DurableEvent> events, ImmutableDictionary<string, ReplicationMetadata> metadata, bool continueReplication = false)
+        public ReplicationWriteSuccess(IReadOnlyCollection<DurableEvent> events, ImmutableDictionary<string, ReplicationMetadata> metadata, bool continueReplication = false)
         {
             Events = events;
             Metadata = metadata;
             ContinueReplication = continueReplication;
         }
 
-        public IEnumerable<DurableEvent> Events { get; }
+        public IReadOnlyCollection<DurableEvent> Events { get; }
         public ImmutableDictionary<string, ReplicationMetadata> Metadata { get; }
         public bool ContinueReplication { get; }
+
+        public bool Equals(ReplicationWriteSuccess other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return Events.CollectionEquals(other.Events) 
+                   && Metadata.DictionaryEquals(other.Metadata) 
+                   && ContinueReplication == other.ContinueReplication;
+        }
+
+        public override bool Equals(object obj) => ReferenceEquals(this, obj) || obj is ReplicationWriteSuccess other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hashCode = Events.GetCollectionHashCode();
+                hashCode = (hashCode * 397) ^ Metadata.GetDictionaryHashCode();
+                hashCode = (hashCode * 397) ^ ContinueReplication.GetHashCode();
+                return hashCode;
+            }
+        }
     }
 
     /// <summary>
     /// Failure reply after a <see cref="ReplicationWrite"/>.
     /// </summary>
-    public readonly struct ReplicationWriteFailure : IFailure<Exception>
+    public readonly struct ReplicationWriteFailure : IFailure<Exception>, IEquatable<ReplicationWriteFailure>
     {
         public ReplicationWriteFailure(Exception cause)
         {
@@ -453,6 +727,10 @@ namespace Eventuate.ReplicationProtocol
         }
 
         public Exception Cause { get; }
+
+        public bool Equals(ReplicationWriteFailure other) => Equals(Cause, other.Cause);
+        public override bool Equals(object obj) => obj is ReplicationWriteFailure other && Equals(other);
+        public override int GetHashCode() => (Cause != null ? Cause.GetHashCode() : 0);
     }
 
     /// <summary>
@@ -492,7 +770,7 @@ namespace Eventuate.ReplicationProtocol
     /// <summary>
     /// Success reply after a <see cref="AdjustEventLogClock"/>. Contains the adjusted clock.
     /// </summary>
-    public readonly struct AdjustEventLogClockSuccess
+    public readonly struct AdjustEventLogClockSuccess : IEquatable<AdjustEventLogClockSuccess>
     {
         public AdjustEventLogClockSuccess(EventLogClock clock)
         {
@@ -500,12 +778,16 @@ namespace Eventuate.ReplicationProtocol
         }
 
         public EventLogClock Clock { get; }
+
+        public bool Equals(AdjustEventLogClockSuccess other) => Equals(Clock, other.Clock);
+        public override bool Equals(object obj) => obj is AdjustEventLogClockSuccess other && Equals(other);
+        public override int GetHashCode() => (Clock != null ? Clock.GetHashCode() : 0);
     }
 
     /// <summary>
     /// Failure reply after a <see cref="AdjustEventLogClock"/>.
     /// </summary>
-    public readonly struct AdjustEventLogClockFailure : IFailure<Exception>
+    public readonly struct AdjustEventLogClockFailure : IFailure<Exception>, IEquatable<AdjustEventLogClockFailure>
     {
         public AdjustEventLogClockFailure(Exception cause)
         {
@@ -513,6 +795,10 @@ namespace Eventuate.ReplicationProtocol
         }
 
         public Exception Cause { get; }
+
+        public bool Equals(AdjustEventLogClockFailure other) => Equals(Cause, other.Cause);
+        public override bool Equals(object obj) => obj is AdjustEventLogClockFailure other && Equals(other);
+        public override int GetHashCode() => (Cause != null ? Cause.GetHashCode() : 0);
     }
 
     /// <summary>

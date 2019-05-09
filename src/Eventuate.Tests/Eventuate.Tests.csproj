@@ -21,8 +21,4 @@
     <ProjectReference Include="..\Eventuate\Eventuate.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="EventLogs" />
-  </ItemGroup>
-
 </Project>

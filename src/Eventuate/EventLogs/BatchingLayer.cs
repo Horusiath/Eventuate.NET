@@ -118,7 +118,7 @@ namespace Eventuate.EventLogs
             return batch.Length != 0;
         }
 
-        protected abstract object WriteRequest(IEnumerable<T> batches);
+        protected abstract object WriteRequest(IReadOnlyCollection<T> batches);
         protected abstract bool Idle(object message);
     }
 
@@ -168,7 +168,7 @@ namespace Eventuate.EventLogs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected override object WriteRequest(IEnumerable<Write> batches) => new WriteMany(batches);
+        protected override object WriteRequest(IReadOnlyCollection<Write> batches) => new WriteMany(batches);
     }
 
     internal sealed class ReplicationBatcher : Batcher<ReplicationWrite>
@@ -208,7 +208,7 @@ namespace Eventuate.EventLogs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        protected override object WriteRequest(IEnumerable<ReplicationWrite> batches) =>
+        protected override object WriteRequest(IReadOnlyCollection<ReplicationWrite> batches) =>
             new ReplicationWriteMany(batches);
     }
 }

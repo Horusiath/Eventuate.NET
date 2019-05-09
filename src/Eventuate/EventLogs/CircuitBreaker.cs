@@ -40,7 +40,7 @@ namespace Eventuate.EventLogs
     /// 
     public sealed class CircuitBreaker : ActorBase
     {
-        private static readonly EventLogUnavailableException Exception = new EventLogUnavailableException();
+        public static readonly EventLogUnavailableException Exception = new EventLogUnavailableException();
 
         private readonly CircuitBreakerSettings settings;
         private readonly IActorRef eventLog;
@@ -147,13 +147,41 @@ namespace Eventuate.EventLogs
             /// </summary>
             ServiceFailed
         }
+        
+        /// <summary>
+        /// Sent by an event log to indicate that it has been successfully initialized.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ServiceEvent Initialized(string logId) => 
+            new ServiceEvent(logId, EventType.ServiceInitialized); 
+        
+        /// <summary>
+        /// Sent by an event log to indicate that it has successfully written an event batch.
+        /// 
+        /// This is also published on the event-stream when it closes the <see cref="CircuitBreaker"/>
+        /// (after previous failures that opened the <see cref="CircuitBreaker"/>).
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ServiceEvent Normal(string logId) => 
+            new ServiceEvent(logId, EventType.ServiceNormal); 
+        
+        /// <summary>
+        /// Sent by an event log to indicate that it failed to write an event batch. The current
+        /// retry count is given by the `retry` parameter.
+        /// 
+        /// This is also published on the event-stream when it opens the <see cref="CircuitBreaker"/>,
+        /// i.e. when `retry` exceeds a configured limit.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ServiceEvent Failed(string logId, int retry, Exception cause) =>
+            new ServiceEvent(logId, EventType.ServiceFailed, retry, cause);
 
         public string LogId { get; }
         public EventType Type { get; }
         public int Retry { get; }
         public Exception Cause { get; }
 
-        public ServiceEvent(string logId, EventType type, int retry = 0, Exception cause = null)
+        private ServiceEvent(string logId, EventType type, int retry = 0, Exception cause = null)
         {
             Type = type;
             LogId = logId;

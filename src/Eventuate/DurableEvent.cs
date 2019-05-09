@@ -15,7 +15,7 @@ namespace Eventuate
     /// Event storage format. Fields `localLogId` and `localSequenceNr` differ among replicas, all other fields are not changed
     /// during event replication.                     
     /// </summary>
-    public sealed class DurableEvent
+    public sealed class DurableEvent : IEquatable<DurableEvent>
     {
         public const string UndefinedEmittedId = "";
         public const string UndefinedLogId = "";
@@ -161,6 +161,54 @@ namespace Eventuate
             var id = ProcessId == UndefinedLogId ? logId : ProcessId;
             var vt = ProcessId == UndefinedLogId ? VectorTimestamp.SetLocalTime(logId, sequenceNr) : VectorTimestamp;
             return new DurableEvent(Payload, systemTimestamp: timestamp, vectorTimestamp: vt, processId: id, localLogId: logId, localSequenceNr: sequenceNr);
+        }
+
+        public bool Equals(DurableEvent other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return Equals(Payload, other.Payload) 
+                   && LocalSequenceNr == other.LocalSequenceNr 
+                   && string.Equals(EmitterId, other.EmitterId) 
+                   && string.Equals(EmitterAggregateId, other.EmitterAggregateId) 
+                   && CustomDestinationAggregateIds.SetEquals(other.CustomDestinationAggregateIds) 
+                   && SystemTimestamp.Equals(other.SystemTimestamp) 
+                   && Equals(VectorTimestamp, other.VectorTimestamp) 
+                   && string.Equals(ProcessId, other.ProcessId) 
+                   && string.Equals(LocalLogId, other.LocalLogId) 
+                   && string.Equals(DeliveryId, other.DeliveryId) 
+                   && PersistOnEventSequenceNr == other.PersistOnEventSequenceNr 
+                   && PersistOnEventId.Equals(other.PersistOnEventId) 
+                   && Id.Equals(other.Id);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return ReferenceEquals(this, obj) || obj is DurableEvent other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hashCode = (Payload != null ? Payload.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ (EmitterId != null ? EmitterId.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ (EmitterAggregateId != null ? EmitterAggregateId.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ SystemTimestamp.GetHashCode();
+                hashCode = (hashCode * 397) ^ (VectorTimestamp != null ? VectorTimestamp.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ (ProcessId != null ? ProcessId.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ (LocalLogId != null ? LocalLogId.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ LocalSequenceNr.GetHashCode();
+                hashCode = (hashCode * 397) ^ (DeliveryId != null ? DeliveryId.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ PersistOnEventSequenceNr.GetHashCode();
+                hashCode = (hashCode * 397) ^ PersistOnEventId.GetHashCode();
+                hashCode = (hashCode * 397) ^ Id.GetHashCode();
+                foreach (var id in CustomDestinationAggregateIds)
+                {
+                    hashCode = (hashCode * 397) ^ id.GetHashCode();
+                }
+                return hashCode;
+            }
         }
     }
 

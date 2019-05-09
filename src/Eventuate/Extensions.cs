@@ -1,6 +1,8 @@
 ﻿using Eventuate.ReplicationProtocol;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Text;
@@ -15,6 +17,66 @@ namespace Eventuate
         {
             key = entry.Key;
             value = entry.Value;
+        }
+
+        public static bool CollectionEquals<T>(this IReadOnlyCollection<T> a, IReadOnlyCollection<T> b)
+            where T: IEquatable<T>
+        {
+            if (a.Count != b.Count) return false;
+            
+            using (var e1 = a.GetEnumerator())
+            using (var e2 = b.GetEnumerator())
+            {
+                while (e1.MoveNext() && e2.MoveNext())
+                {
+                    if (!e1.Current.Equals(e2.Current)) return false;
+                }
+            }
+
+            return true;
+        }
+        
+        public static bool DictionaryEquals<TKey, TValue>(this ImmutableDictionary<TKey,TValue> a, ImmutableDictionary<TKey,TValue> b)
+            where TKey: IEquatable<TKey>
+            where TValue: IEquatable<TValue>
+        {
+            if (a.Count != b.Count) return false;
+
+            foreach (var key in a.Keys.Union(b.Keys))
+            {
+                if (!a.TryGetValue(key, out var va) || !b.TryGetValue(key, out var vb) || !va.Equals(vb)) return false;
+            }
+
+            return true;
+        }
+
+        public static int GetDictionaryHashCode<TKey, TValue>(this ImmutableDictionary<TKey, TValue> a)
+            where TKey : IEquatable<TKey>
+            where TValue : IEquatable<TValue>
+        {
+            unchecked
+            {
+                var hash = 0;
+                foreach (var (k,v) in a)
+                {
+                    hash = (hash * 397) ^ k.GetHashCode() ^ v.GetHashCode();
+                }
+                return hash;
+            }
+        }
+        
+        public static int GetCollectionHashCode<T>(this IReadOnlyCollection<T> a)
+            where T: IEquatable<T>
+        {
+            unchecked
+            {
+                var hash = 0;
+                foreach (var x in a)
+                {
+                    hash = (hash * 397) ^ x.GetHashCode();
+                }
+                return hash;
+            }
         }
     }
 
