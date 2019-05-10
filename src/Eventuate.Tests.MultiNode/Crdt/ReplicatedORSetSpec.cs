@@ -14,6 +14,8 @@ namespace Eventuate.Tests.MultiNode.Crdt
         public RoleName NodeA { get; }
         public RoleName NodeB { get; }
         
+        protected readonly Config ReplicationConfig;
+        
         public ReplicatedORSetConfig()
         {
             NodeA = Role("nodeA");
@@ -24,7 +26,7 @@ namespace Eventuate.Tests.MultiNode.Crdt
                 eventuate.log.write-batch-size = 200
                 eventuate.log.replication.remote-read-timeout = 2s")
                 .WithFallback(DefaultConfig);
-
+            
             TestTransport = true;
         }
     }
