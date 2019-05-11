@@ -1,4 +1,13 @@
-﻿using System.Collections.Immutable;
+﻿#region copyright
+// -----------------------------------------------------------------------
+//  <copyright file="IEventSourcedVersion.cs" company="Bartosz Sypytkowski">
+//      Copyright (C) 2015-2019 Red Bull Media House GmbH <http://www.redbullmediahouse.com>
+//      Copyright (C) 2019-2019 Bartosz Sypytkowski <b.sypytkowski@gmail.com>
+//  </copyright>
+// -----------------------------------------------------------------------
+#endregion
+
+using System.Collections.Immutable;
 
 namespace Eventuate
 {
