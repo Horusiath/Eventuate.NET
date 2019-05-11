@@ -10,7 +10,7 @@ using FluentAssertions;
 
 namespace Eventuate.Tests.MultiNode
 {
-    public sealed class FailureDetectionConfig : MultiNodeReplicationConfig
+    public class FailureDetectionConfig : MultiNodeReplicationConfig
     {
         public RoleName NodeA { get; }
         public RoleName NodeB { get; }
@@ -29,43 +29,6 @@ namespace Eventuate.Tests.MultiNode
     
     public abstract class FailureDetectionSpec : MultiNodeSpec, IMultiNodeReplicationEndpoint
     {
-        internal sealed class ReplicatedActor : EventsourcedActor
-        {
-            private readonly IActorRef probe;
-
-            public ReplicatedActor(string id, IActorRef eventLog, IActorRef probe)
-            {
-                this.probe = probe;
-                Id = id;
-                EventLog = eventLog;
-            }
-
-            public override string Id { get; }
-            public override IActorRef EventLog { get; }
-            protected override bool OnCommand(object message)
-            {
-                if (message is string s)
-                {
-                    Persist(s, r =>
-                    {
-                        if (r.IsFailure) throw r.Exception;
-                    });
-                    return true;
-                }
-                else return false;
-            }
-
-            protected override bool OnEvent(object message)
-            {
-                if (message is string s)
-                {
-                    probe.Tell((s, LastVectorTimestamp, CurrentVersion));
-                    return true;
-                }
-                else return false;
-            }
-        }
-
         protected readonly RoleName nodeA;
         protected readonly RoleName nodeB;
         protected readonly string logIdA;
