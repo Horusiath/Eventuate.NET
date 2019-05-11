@@ -47,7 +47,7 @@ namespace Eventuate
         /// <param name="replace">If `true` (default) replaces the `current` behavior on the behavior stack, if `false` pushes `behavior` on the behavior stack.</param>
         public void Become(Receive behavior, bool replace = true)
         {
-            if (replace)
+            if (!replace)
             {
                 if (behaviorStack is null)
                     behaviorStack = new Stack<Receive>();

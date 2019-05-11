@@ -49,7 +49,7 @@ namespace Eventuate
     /// <summary>
     /// Serializable logical AND of given `filters`.
     /// </summary>
-    internal sealed class AndFilter : ReplicationFilter
+    internal sealed class AndFilter : ReplicationFilter, IEquatable<ReplicationFilter>
     {
         public IEnumerable<ReplicationFilter> Filters { get; }
 
@@ -68,12 +68,35 @@ namespace Eventuate
             }
             return true;
         }
+
+        public bool Equals(ReplicationFilter other)
+        {
+            if (ReferenceEquals(other, null)) return false;
+            if (ReferenceEquals(other, this)) return true;
+            return other is AndFilter f && Filters.SequenceEqual(f.Filters);
+        }
+
+        public override bool Equals(object obj) => ReferenceEquals(this, obj) || obj is AndFilter other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = 0;
+                foreach (var filter in Filters)
+                {
+                    hash = (397 * hash) ^ filter.GetHashCode();
+                }
+
+                return hash;
+            }
+        }
     }
 
     /// <summary>
     /// Serializable logical OR of given `filters`.
     /// </summary>
-    internal sealed class OrFilter : ReplicationFilter
+    internal sealed class OrFilter : ReplicationFilter, IEquatable<ReplicationFilter>
     {
         public IEnumerable<ReplicationFilter> Filters { get; }
 
@@ -89,6 +112,29 @@ namespace Eventuate
                 if (filter.Invoke(durableEvent)) return true;
             }
             return false;
+        }
+
+        public bool Equals(ReplicationFilter other)
+        {
+            if (ReferenceEquals(other, null)) return false;
+            if (ReferenceEquals(other, this)) return true;
+            return other is OrFilter or && Filters.SequenceEqual(or.Filters);
+        }
+
+        public override bool Equals(object obj) => ReferenceEquals(this, obj) || obj is OrFilter other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = 0;
+                foreach (var filter in Filters)
+                {
+                    hash = (397 * hash) ^ filter.GetHashCode();
+                }
+
+                return hash;
+            }
         }
     }
 

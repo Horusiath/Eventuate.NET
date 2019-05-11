@@ -67,8 +67,8 @@ namespace Eventuate.Tests.Crdt
                 .Value.Should().Be(new Option<int>(2));
             
             target
-                .Assign(1, VectorTime(1, 0), default, "source-1")
-                .Assign(2, VectorTime(0, 1), default, "source-2")
+                .Assign(1, VectorTime(1, 0), default, "source-2")
+                .Assign(2, VectorTime(0, 1), default, "source-1")
                 .Value.Should().Be(new Option<int>(1));
         }
     }
