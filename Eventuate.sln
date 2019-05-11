@@ -11,6 +11,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Eventuate.Tests", "src\Even
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eventuate.Tests.MultiNode", "src\Eventuate.Tests.MultiNode\Eventuate.Tests.MultiNode.csproj", "{12B5F0CA-ECAC-49AE-9FC1-85BD1EDD5A9D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eventuate.Lmdb", "src\Eventuate.Lmdb\Eventuate.Lmdb.csproj", "{02D60D85-5E4E-4B87-BE27-B5E626F61A03}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -29,6 +31,10 @@ Global
 		{12B5F0CA-ECAC-49AE-9FC1-85BD1EDD5A9D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{12B5F0CA-ECAC-49AE-9FC1-85BD1EDD5A9D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{12B5F0CA-ECAC-49AE-9FC1-85BD1EDD5A9D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{02D60D85-5E4E-4B87-BE27-B5E626F61A03}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{02D60D85-5E4E-4B87-BE27-B5E626F61A03}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{02D60D85-5E4E-4B87-BE27-B5E626F61A03}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{02D60D85-5E4E-4B87-BE27-B5E626F61A03}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -37,6 +43,7 @@ Global
 		{0FF96330-5CB5-4907-9149-906B508C3242} = {E2F60848-D35A-4266-9E7E-1F60AAA321D9}
 		{2991001F-D288-4039-8F8B-7099CD5822A4} = {E2F60848-D35A-4266-9E7E-1F60AAA321D9}
 		{12B5F0CA-ECAC-49AE-9FC1-85BD1EDD5A9D} = {E2F60848-D35A-4266-9E7E-1F60AAA321D9}
+		{02D60D85-5E4E-4B87-BE27-B5E626F61A03} = {E2F60848-D35A-4266-9E7E-1F60AAA321D9}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {2F048451-F7E8-4D40-B4D0-8F54084DB384}

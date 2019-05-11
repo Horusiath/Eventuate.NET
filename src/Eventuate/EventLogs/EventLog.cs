@@ -203,7 +203,7 @@ namespace Eventuate.EventLogs
 
         public IStash Stash { get; set; }
 
-        public TSettings Settings { get; }
+        public TSettings Settings { get; protected set; }
         public string Id { get; }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
