@@ -103,6 +103,9 @@ namespace Eventuate
                 hashCode = hashCode * 23 + (LogName?.GetHashCode() ?? 0);
                 return hashCode;
             }
+            
+            public override string ToString() =>
+                $"Available(endpointId: '{EndpointId}', logName: '{LogName}')";
         }
 
         /// <summary>
@@ -121,24 +124,24 @@ namespace Eventuate
             public string LogName { get; }
             public IEnumerable<Exception> Causes { get; }
 
-            public bool Equals(Unavailable other)
-            {
-                return Equals(EndpointId, other.EndpointId) && Equals(LogName, other.LogName) && Equals(Causes, other.Causes);
-            }
+            public bool Equals(Unavailable other) => Equals(EndpointId, other.EndpointId) && Equals(LogName, other.LogName) && Causes.SequenceEqual(other.Causes);
 
-            public override bool Equals(object other)
-            {
-                return other is Unavailable ? Equals((Unavailable)other) : false;
-            }
+            public override bool Equals(object other) => other is Unavailable ? Equals((Unavailable)other) : false;
 
             public override int GetHashCode()
             {
                 var hashCode = 17;
                 hashCode = hashCode * 23 + (EndpointId?.GetHashCode() ?? 0);
                 hashCode = hashCode * 23 + (LogName?.GetHashCode() ?? 0);
-                hashCode = hashCode * 23 + (Causes?.GetHashCode() ?? 0);
+                foreach (var cause in Causes)
+                {
+                    hashCode = (hashCode * 23) ^ cause.GetHashCode();
+                }
                 return hashCode;
             }
+
+            public override string ToString() =>
+                $"Unavailable(endpointId: '{EndpointId}', logName: '{LogName}', causes: [{string.Join(", ", Causes)}])";
         }
 
         #endregion
@@ -902,26 +905,23 @@ namespace Eventuate
         private readonly string sourceEndpointId;
         private readonly string logName;
         private readonly TimeSpan failureDetectionLimit;
-        private readonly Stopwatch stopwatch = new Stopwatch();
 
         private int counter = 0;
         private ImmutableArray<Exception> causes = ImmutableArray<Exception>.Empty;
         private ICancelable schedule;
         private long lastReportedAvailability = 0;
-
         public FailureDetector(string sourceEndpointId, string logName, TimeSpan failureDetectionLimit)
         {
             this.schedule = ScheduleFailureDetectionLimitReached();
             this.sourceEndpointId = sourceEndpointId;
             this.logName = logName;
             this.failureDetectionLimit = failureDetectionLimit;
-            this.stopwatch.Start();
         }
 
         private ICancelable ScheduleFailureDetectionLimitReached()
         {
             this.counter++;
-            return Context.System.Scheduler.ScheduleTellOnceCancelable(this.failureDetectionLimit, Self, FailureDetectorChange.FailureDetectionLimitReached(counter), ActorRefs.NoSender);
+            return Context.System.Scheduler.ScheduleTellOnceCancelable(this.failureDetectionLimit, Self, FailureDetectorChange.FailureDetectionLimitReached(counter), Self);
         }
 
         protected override bool Receive(object message)
@@ -931,7 +931,7 @@ namespace Eventuate
                 switch (change.Type)
                 {
                     case FailureDetectorChange.FailureDetectorType.AvailabilityDetected:
-                        var currentTime = stopwatch.ElapsedTicks;
+                        var currentTime = DateTime.UtcNow.Ticks; //TODO: rework to use monotonic time clock
                         var lastInterval = currentTime - lastReportedAvailability;
                         if (lastInterval >= failureDetectionLimit.Ticks)
                         {
