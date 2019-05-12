@@ -117,11 +117,10 @@ namespace Eventuate
         public IConcurrentVersions<T, T> Resolve(VectorTime selectedTimestamp, VectorTime vectorTimestamp, DateTime? systemTimestamp = null)
         {
             var builder = ImmutableList.CreateBuilder<Versioned<T>>();
-            foreach (var version in this.versions)
+            foreach (var v in this.versions)
             {
-                var cmp = version.VectorTimestamp.PartiallyCompareTo(selectedTimestamp);
-                if (!cmp.HasValue) builder.Add(version);
-                else if (cmp.Value == 0) builder.Add(new Versioned<T>(version.Value, vectorTimestamp, systemTimestamp));
+                if (v.VectorTimestamp == selectedTimestamp) builder.Add(new Versioned<T>(v.Value, vectorTimestamp, systemTimestamp));
+                else if (v.VectorTimestamp.IsConcurrent(vectorTimestamp)) builder.Add(v);
             }
 
             return new ConcurrentVersionsList<T>(builder.ToImmutable(), this.Owner);
@@ -131,32 +130,35 @@ namespace Eventuate
         {
             var builder = ImmutableList.CreateBuilder<Versioned<T>>();
             var conflictResolved = false;
-            foreach (var version in this.versions)
+            foreach (var a in this.versions)
             {
-                if (conflictResolved) builder.Add(version);
+                if (conflictResolved) builder.Add(a);
                 else
                 {
-                    var cmp = version.VectorTimestamp.PartiallyCompareTo(vectorTimestamp);
+                    var cmp = vectorTimestamp.PartiallyCompareTo(a.VectorTimestamp);
                     if (cmp > 0)
                     {
                         // regular update on that version
                         builder.Add(new Versioned<T>(update, vectorTimestamp, systemTimestamp, creator));
+                        conflictResolved = true;
                     }
                     else if (cmp < 0)
                     {
                         // conflict already resolved, ignore
-                        builder.Add(version);
-                        conflictResolved = false;
+                        builder.Add(a);
+                        conflictResolved = true;
                     }
                     else
                     {
                         // conflicting update, try next
-                        builder.Add(version);
+                        builder.Add(a);
                         conflictResolved = false;
                     }
                 }
-
             }
+            
+            if (!conflictResolved)
+                builder.Add(new Versioned<T>(update, vectorTimestamp, systemTimestamp, creator));
 
             return new ConcurrentVersionsList<T>(builder.ToImmutable(), this.Owner);
         }

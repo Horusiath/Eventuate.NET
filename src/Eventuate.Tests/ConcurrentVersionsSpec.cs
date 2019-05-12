@@ -35,7 +35,8 @@ namespace Eventuate.Tests
                 .Update("b", VectorTime(2, 0, 0));
 
             result.HasConflict.Should().Be(false);
-            result.All.First().Should().Be(new Versioned<string>("b", VectorTime(2, 0, 0)));
+            var all = result.All.ToArray();
+            all.First().Should().Be(new Versioned<string>("b", VectorTime(2, 0, 0)));
         }
         
         [Fact]
@@ -104,7 +105,7 @@ namespace Eventuate.Tests
             var result = versions
                 .Update("a", VectorTime(1, 0, 0))
                 .Update("b", VectorTime(0, 1, 0))
-                .Update("b", VectorTime(0, 0, 1))
+                .Update("c", VectorTime(0, 0, 1))
                 .Resolve(VectorTime(1,0,0), VectorTime(2, 1, 0));
 
             var all = result.All.ToArray();
