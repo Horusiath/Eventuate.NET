@@ -117,7 +117,7 @@ namespace Eventuate.EventLogs
 
                 case Write w:
                     // Write requests are not made via ask
-                    w.ReplyTo.Tell(new WriteFailure(w.Events, Exception, w.CorrelationId, w.InstanceId));
+                    w.ReplyTo.Tell(new WriteFailure(w.Events, Exception, w.CorrelationId, w.InstanceId), w.Initiator);
                     return true;
 
                 default:
@@ -130,7 +130,7 @@ namespace Eventuate.EventLogs
     /// <summary>
     /// An event that controls <see cref="CircuitBreaker"/> state.
     /// </summary>
-    public sealed class ServiceEvent
+    public sealed class ServiceEvent : IEquatable<ServiceEvent>
     {
         public enum EventType
         {
@@ -196,6 +196,27 @@ namespace Eventuate.EventLogs
             LogId = logId;
             Retry = retry;
             Cause = cause;
+        }
+
+        public bool Equals(ServiceEvent other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return string.Equals(LogId, other.LogId) && Type == other.Type && Retry == other.Retry && Equals(Cause, other.Cause);
+        }
+
+        public override bool Equals(object obj) => ReferenceEquals(this, obj) || obj is ServiceEvent other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hashCode = (LogId != null ? LogId.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ (int) Type;
+                hashCode = (hashCode * 397) ^ Retry;
+                hashCode = (hashCode * 397) ^ (Cause != null ? Cause.GetHashCode() : 0);
+                return hashCode;
+            }
         }
     }
 }

@@ -119,7 +119,11 @@ namespace Eventuate.EventLogs
                     return true;
 
                 case ReplicationWrite w:
-
+                    foreach (var id in w.SourceLogIds)
+                    {
+                        if (registry.TryGetValue(id, out var rr))
+                            registry = registry.SetItem(id, new Registration(rr.Replicator, w.Metadata[id].CurrentVersionVector, rr.Filter, rr.RegistrationTime));
+                    }
                     return true;
 
                 default: return false;

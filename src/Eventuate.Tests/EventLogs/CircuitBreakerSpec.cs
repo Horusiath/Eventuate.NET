@@ -38,7 +38,7 @@ namespace Eventuate.Tests.EventLogs
         private readonly IActorRef breaker;
         private readonly TestProbe probe;
         
-        public CircuitBreakerSpec(ITestOutputHelper output) : base(output: output)
+        public CircuitBreakerSpec(ITestOutputHelper output) : base(config: "eventuate.log.circuit-breaker.open-after-retries = 1", output: output)
         {
             this.breaker = Sys.ActorOf(Props.Create(() => new CircuitBreaker(Props.Create<TestLog>(), false)));
             this.probe = CreateTestProbe();
