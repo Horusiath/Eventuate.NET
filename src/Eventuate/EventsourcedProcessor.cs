@@ -22,11 +22,18 @@ namespace Eventuate
 {
     internal sealed class EventsourcedProcessorSettings
     {
-        public EventsourcedProcessorSettings(Config config)
+        public EventsourcedProcessorSettings(Config config) : this(
+            readTimeout: config.GetTimeSpan("eventuate.log.read-timeout", TimeSpan.FromSeconds(10)),
+            writeTimeout: config.GetTimeSpan("eventuate.log.write-timeout", TimeSpan.FromSeconds(10)),
+            writeBatchSize: config.GetInt("eventuate.log.write-batch-size", 64))
         {
-            this.ReadTimeout = config.GetTimeSpan("eventuate.log.read-timeout");
-            this.WriteTimeout = config.GetTimeSpan("eventuate.log.write-timeout");
-            this.WriteBatchSize = config.GetInt("eventuate.log.write-batch-size");
+        }
+
+        public EventsourcedProcessorSettings(TimeSpan readTimeout, TimeSpan writeTimeout, int writeBatchSize)
+        {
+            ReadTimeout = readTimeout;
+            WriteTimeout = writeTimeout;
+            WriteBatchSize = writeBatchSize;
         }
 
         public TimeSpan ReadTimeout { get; }

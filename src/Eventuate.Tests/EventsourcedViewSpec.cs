@@ -67,9 +67,10 @@ namespace Eventuate.Tests
                     case "boom":
                         throw TestException.Instance;
                         return true;
-                    default:
-                        msgProbe.Tell((evt, LastVectorTimestamp, LastSequenceNr));
+                    case string s:
+                        msgProbe.Tell((s, LastVectorTimestamp, LastSequenceNr));
                         return true;
+                    default: return false;
                 }
             }
         }
@@ -342,7 +343,7 @@ namespace Eventuate.Tests
             logProbe.Sender.Tell(new LoadSnapshotSuccess(null, instanceId));
             logProbe.ExpectMsg(new Replay(actor, instanceId, 1, 2));
             logProbe.Sender.Tell(new ReplaySuccess(new[] {event1a, event1b}, event1b.LocalSequenceNr, instanceId));
-            logProbe.ExpectMsg(new Replay(null, instanceId, event1b.LocalSequenceNr));
+            logProbe.ExpectMsg(new Replay(null, instanceId, event1b.LocalSequenceNr + 1L, 2));
             logProbe.Sender.Tell(new ReplaySuccess(new[] {event1c}, event1c.LocalSequenceNr, instanceId));
 
             msgProbe.ExpectMsg(("a", event1a.VectorTimestamp, event1a.LocalSequenceNr));

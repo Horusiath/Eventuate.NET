@@ -21,9 +21,14 @@ namespace Eventuate
 {
     internal sealed class EventsourcedWriterSettings
     {
-        public EventsourcedWriterSettings(Config config)
+        public EventsourcedWriterSettings(Config config) : this(
+            replayRetryMax: config.GetInt("eventuate.log.replay-retry-max", 10))
         {
-            this.ReplayRetryMax = config.GetInt("eventuate.log.replay-retry-max");
+        }
+
+        public EventsourcedWriterSettings(int replayRetryMax)
+        {
+            ReplayRetryMax = replayRetryMax;
         }
 
         public int ReplayRetryMax { get; }
@@ -204,7 +209,7 @@ namespace Eventuate
             numPending++;
         }
 
-        internal override void Initialize()
+        protected override void Initialize()
         {
             Read().PipeTo(Self,
                 success: r => new ReadSuccess<TRead>(r, InstanceId),

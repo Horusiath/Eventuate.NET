@@ -19,9 +19,14 @@ namespace Eventuate
 {
     internal sealed class EventsourcedActorSettings
     {
-        public EventsourcedActorSettings(Config config)
+        public EventsourcedActorSettings(Config config) : this(
+            writeTimeout: config.GetTimeSpan("eventuate.log.write-timeout", TimeSpan.FromSeconds(10)))
         {
-            this.WriteTimeout = config.GetTimeSpan("eventuate.log.write-timeout");
+        }
+
+        public EventsourcedActorSettings(TimeSpan writeTimeout)
+        {
+            WriteTimeout = writeTimeout;
         }
 
         public TimeSpan WriteTimeout { get; }

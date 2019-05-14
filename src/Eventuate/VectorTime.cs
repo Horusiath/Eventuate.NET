@@ -137,10 +137,19 @@ namespace Eventuate
 
         public override string ToString()
         {
-            var sb = new StringBuilder('{');
-            foreach (var (processId, localTime) in this.Value)
+            var sb = new StringBuilder("{");
+            using (var e = this.Value.GetEnumerator())
             {
-                sb.Append(processId).Append(':').Append(localTime).Append(',');
+                if (e.MoveNext())
+                {
+                    var (processId, localTime) = e.Current;
+                    sb.Append('\"').Append(processId).Append("\":").Append(localTime);
+                    while (e.MoveNext())
+                    {
+                        (processId, localTime) = e.Current;
+                        sb.Append(", \"").Append(processId).Append("\":").Append(localTime);
+                    }
+                }
             }
             return sb.Append('}').ToString();
         }

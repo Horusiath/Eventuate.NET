@@ -20,17 +20,24 @@ namespace Eventuate
 {
     internal sealed class EventsourcedViewSettings
     {
-        public EventsourcedViewSettings(Config config)
+        public EventsourcedViewSettings(Config config) : this(
+            replayBatchSize: config.GetInt("eventuate.log.replay-batch-size", 4096),
+            replayRetryMax: config.GetInt("eventuate.log.replay-retry-max", 10),
+            replayRetryDelay: config.GetTimeSpan("eventuate.log.replay-retry-delay", TimeSpan.FromSeconds(10)),
+            readTimeout: config.GetTimeSpan("eventuate.log.read-timeout", TimeSpan.FromSeconds(10)),
+            loadTimeout: config.GetTimeSpan("eventuate.snapshot.load-timeout", TimeSpan.FromSeconds(10)),
+            saveTimeout: config.GetTimeSpan("eventuate.snapshot.save-timeout", TimeSpan.FromSeconds(10)))
         {
-            var logConfig = config.GetConfig("eventuate.log");
-            var snapshotConfig = config.GetConfig("eventuate.snapshot");
+        }
 
-            this.ReplayBatchSize = logConfig.GetInt("replay-batch-size");
-            this.ReplayRetryMax = logConfig.GetInt("replay-retry-max");
-            this.ReplayRetryDelay = logConfig.GetTimeSpan("replay-retry-delay");
-            this.ReadTimeout = logConfig.GetTimeSpan("read-timeout");
-            this.LoadTimeout = snapshotConfig.GetTimeSpan("load-timeout");
-            this.SaveTimeout = snapshotConfig.GetTimeSpan("save-timeout");
+        public EventsourcedViewSettings(int replayBatchSize, int replayRetryMax, TimeSpan replayRetryDelay, TimeSpan readTimeout, TimeSpan loadTimeout, TimeSpan saveTimeout)
+        {
+            ReplayBatchSize = replayBatchSize;
+            ReplayRetryMax = replayRetryMax;
+            ReplayRetryDelay = replayRetryDelay;
+            ReadTimeout = readTimeout;
+            LoadTimeout = loadTimeout;
+            SaveTimeout = saveTimeout;
         }
 
         public int ReplayBatchSize { get; }
@@ -295,7 +302,21 @@ namespace Eventuate
         /// </summary>
         protected void Save(object snapshot, Action<Try<SnapshotMetadata>> handler)
         {
+            var timeout = settings.SaveTimeout;
+            var payload = snapshot is ICloneable cloneable ? cloneable.Clone() : snapshot;
+            var proto = new Snapshot(payload, Id, lastHandledEvent, CurrentVersion, lastReceivedSequenceNr);
+            var metadata = proto.Metadata;
+            var iid = InstanceId;
 
+            if (saveRequests.ContainsKey(metadata))
+                handler(Try.Failure<SnapshotMetadata>(new IllegalActorStateException($"snapshot with metadata {metadata} is currently being saved")));
+            else
+            {
+                saveRequests = saveRequests.Add(metadata, handler);
+                var snap = SnapshotCaptured(proto);
+                EventLog.Ask(new SaveSnapshot(snap, Sender, iid), timeout: timeout)
+                    .PipeTo(Self, Sender, failure: cause => new SaveSnapshotFailure(metadata, cause, iid));
+            }
         }
 
         /// <summary>
@@ -319,7 +340,7 @@ namespace Eventuate
                 this.Unhandled(message);
         }
 
-        internal virtual void Initialize()
+        protected virtual void Initialize()
         {
             var sequenceNr = ReplayFromSequenceNr;
             if (sequenceNr.HasValue)
