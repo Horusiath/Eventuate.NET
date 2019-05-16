@@ -26,20 +26,13 @@ namespace Eventuate.Tests
             I = i;
         }
 
-        public bool Equals(Ping other)
-        {
-            return I == other.I;
-        }
+        public bool Equals(Ping other) => I == other.I;
 
-        public override bool Equals(object obj)
-        {
-            return obj is Ping other && Equals(other);
-        }
+        public override bool Equals(object obj) => obj is Ping other && Equals(other);
 
-        public override int GetHashCode()
-        {
-            return I;
-        }
+        public override int GetHashCode() => I;
+
+        public override string ToString() => $"Ping({I})";
     }
 
     internal readonly struct Pong : IEquatable<Pong>
@@ -51,20 +44,12 @@ namespace Eventuate.Tests
             I = i;
         }
 
-        public bool Equals(Pong other)
-        {
-            return I == other.I;
-        }
+        public bool Equals(Pong other) => I == other.I;
 
-        public override bool Equals(object obj)
-        {
-            return obj is Pong other && Equals(other);
-        }
+        public override bool Equals(object obj) => obj is Pong other && Equals(other);
 
-        public override int GetHashCode()
-        {
-            return I;
-        }
+        public override int GetHashCode() => I;
+        public override string ToString() => $"Pong({I})";
     }
 
 }

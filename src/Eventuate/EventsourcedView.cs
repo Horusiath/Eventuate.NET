@@ -50,25 +50,25 @@ namespace Eventuate
 
     /// <summary>
     /// An actor that derives internal state from events stored in an event log. Events are pushed from
-    /// the `eventLog` actor to this actor and handled with the `onEvent` event handler. An event handler
+    /// the <see cref="EventLog"/> actor to this actor and handled with the <see cref="OnEvent"/> event handler. An event handler
     /// defines how internal state is updated from events.
     /// 
-    /// An `EventsourcedView` can also store snapshots of internal state with its `save` method. During
+    /// An <see cref="EventsourcedView"/> can also store snapshots of internal state with its <see cref="Save"/> method. During
     /// (re-)start the latest snapshot saved by this actor (if any) is passed as argument to the `onSnapshot`
-    /// handler, if the handler is defined at that snapshot. If the `onSnapshot` handler is not defined at
+    /// handler, if the handler is defined at that snapshot. If the <see cref="OnSnapshot"/> handler is not defined at
     /// that snapshot or is not overridden at all, event replay starts from scratch. Newer events that are
-    /// not covered by the snapshot are handled by `onEvent` after `onSnapshot` returns.
+    /// not covered by the snapshot are handled by <see cref="OnEvent"/> after <see cref="OnSnapshot"/>` returns.
     /// 
-    /// By default, an `EventsourcedView` does not define an `aggregateId`. In this case, the `eventLog`
-    /// pushes all events to this actor. If it defines an `aggregateId`, the `eventLog` actor only pushes
-    /// those events that contain that `aggregateId` value in their `routingDestinations` set.
+    /// By default, an <see cref="EventsourcedView"/> does not define an <see cref="AggregateId"/>. In this case, the <see cref="EventLog"/>
+    /// pushes all events to this actor. If it defines an <see cref="AggregateId"/>, the <see cref="EventLog"/> actor only pushes
+    /// those events that contain that <see cref="AggregateId"/> value in their `routingDestinations` set.
     /// 
-    /// An `EventsourcedView` can only consume events from its `eventLog` but cannot produce new events.
-    /// Commands sent to an `EventsourcedView` during recovery are delayed until recovery completes.
+    /// An <see cref="EventsourcedView"/> can only consume events from its <see cref="EventLog"/> but cannot produce new events.
+    /// Commands sent to an <see cref="EventsourcedView"/> during recovery are delayed until recovery completes.
     /// 
     /// Event replay is subject to backpressure. After a configurable number of events
     /// (see `eventuate.log.replay-batch-size` configuration parameter), replay is suspended until these
-    /// events have been handled by `onEvent` and then resumed again. There's no backpressure mechanism
+    /// events have been handled by <see cref="OnEvent"/> and then resumed again. There's no backpressure mechanism
     /// for live event processing yet (but will come in future releases).
     /// </summary>
     /// <seealso cref="DurableEvent"/>
@@ -362,7 +362,7 @@ namespace Eventuate
             var sub = subscribe ? Self : null;
             var iid = InstanceId;
 
-            this.EventLog.Ask(new Replay(sub, iid, fromSequenceNr, ReplayBatchSize, AggregateId))
+            this.EventLog.Ask(new Replay(sub, iid, fromSequenceNr, ReplayBatchSize, AggregateId), timeout: settings.ReadTimeout)
                 .PipeTo(Self, failure: e => new ReplayFailure(e, fromSequenceNr, iid));
         }
 
@@ -528,6 +528,7 @@ namespace Eventuate
         protected override void PreRestart(Exception reason, object message)
         {
             isRecovering = false;
+            //Stash.UnstashAll();
             base.PreRestart(reason, message);
         }
 

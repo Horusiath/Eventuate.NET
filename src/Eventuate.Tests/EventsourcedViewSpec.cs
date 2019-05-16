@@ -266,7 +266,11 @@ namespace Eventuate.Tests
         private readonly TestProbe logProbe;
         private readonly TestProbe msgProbe;
 
-        public EventsourcedViewSpec(ITestOutputHelper output) : base(output: output)
+        private const string TestConfig = @"
+          eventuate.log.replay-retry-max = 5
+          eventuate.log.replay-retry-delay = 5ms";
+
+        public EventsourcedViewSpec(ITestOutputHelper output) : base(config: TestConfig, output: output)
         {
             this.event1a = Event("a", 1);
             this.event1b = Event("b", 2);
@@ -516,8 +520,8 @@ namespace Eventuate.Tests
             actor.Tell(new Ping(4));
 
             msgProbe.ExpectMsg(new Pong(1));
-            msgProbe.ExpectMsg(new Pong(2));
             msgProbe.ExpectMsg(new Pong(3));
+            msgProbe.ExpectMsg(new Pong(2));
             msgProbe.ExpectMsg(new Pong(4));
         }
 
@@ -535,8 +539,8 @@ namespace Eventuate.Tests
             actor.Tell(new Ping(4));
             
             msgProbe.ExpectMsg(new Pong(1));
-            msgProbe.ExpectMsg(new Pong(2));
             msgProbe.ExpectMsg(new Pong(3));
+            msgProbe.ExpectMsg(new Pong(2));
             msgProbe.ExpectMsg(new Pong(4));
         }
 
@@ -553,8 +557,8 @@ namespace Eventuate.Tests
             actor.Tell("unstash");
             
             msgProbe.ExpectMsg(new Pong(1));
-            msgProbe.ExpectMsg(new Pong(2));
             msgProbe.ExpectMsg(new Pong(3));
+            msgProbe.ExpectMsg(new Pong(2));
         }
 
         [Fact]
@@ -575,8 +579,8 @@ namespace Eventuate.Tests
             ProcessRecover(actor, instanceId + 1);
     
             msgProbe.ExpectMsg(new Pong(1));
-            msgProbe.ExpectMsg(new Pong(2));
             msgProbe.ExpectMsg(new Pong(3));
+            msgProbe.ExpectMsg(new Pong(2));
             msgProbe.ExpectMsg(new Pong(4));
         }
 
@@ -587,7 +591,6 @@ namespace Eventuate.Tests
             var actor = RecoveredStashingView();
             
             actor.Tell(new Ping(1));
-            actor.Tell("boom");
             actor.Tell("stash-on");
             actor.Tell(new Ping(2));
             actor.Tell("boom");
@@ -675,7 +678,7 @@ namespace Eventuate.Tests
             var event1 = Event("e1", 1, emitterId: "x");
 
             actor.Tell(new Written(event1));
-            msgProbe.ExpectMsg("handler");
+            msgProbe.ExpectMsg("handled");
 
             actor.Tell("last");
             msgProbe.ExpectMsg<DurableEvent>().Payload.Should().Be("e1");
