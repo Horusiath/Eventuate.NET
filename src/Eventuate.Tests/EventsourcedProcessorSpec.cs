@@ -55,7 +55,7 @@ namespace Eventuate.Tests
 
             public override IEnumerable<object> ProcessEvent(object domainEvent)
             {
-                if (domainEvent == "x") yield return domainEvent;
+                if (Equals(domainEvent, "x")) yield return domainEvent;
             }
         }
         
@@ -78,7 +78,7 @@ namespace Eventuate.Tests
 
             protected override bool OnCommand(object message)
             {
-                if (message == "state")
+                if (Equals(message,"state"))
                 {
                     appProbe.Tell(processedEvents);
                     return true;
@@ -132,7 +132,7 @@ namespace Eventuate.Tests
 
             protected override bool OnCommand(object message)
             {
-                if (message == "state")
+                if (Equals(message, "state"))
                 {
                     appProbe.Tell(processedEvents);
                     return true;

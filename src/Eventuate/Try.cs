@@ -62,7 +62,7 @@ namespace Eventuate
         public bool IsFailure
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => this.exception is null;
+            get => !(this.exception is null);
         }
 
         public T Value

@@ -107,7 +107,7 @@ namespace Eventuate.Tests
                         PersistMany(new[] {"a", "b", "c"}, handler, handler);
                         return true;
                     case Cmd cmd:
-                        for (int i = 0; i < cmd.Num; i++)
+                        for (int i = 1; i <= cmd.Num; i++)
                         {
                             Persist($"{cmd.Payload}-{i}", r =>
                             {

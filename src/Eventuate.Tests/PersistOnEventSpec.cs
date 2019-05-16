@@ -84,11 +84,11 @@ namespace Eventuate.Tests
                 }
             }
 
-            protected override bool OnSnapshot(object message) => message == "foo";
+            protected override bool OnSnapshot(object message) => Equals(message, "foo");
             internal override void ReceiveEvent(DurableEvent e)
             {
                 base.ReceiveEvent(e);
-                if (e.Payload == "boom")
+                if (Equals(e.Payload, "boom"))
                 {
                     // after restart, there is
                     // a PersistOnEventRequest

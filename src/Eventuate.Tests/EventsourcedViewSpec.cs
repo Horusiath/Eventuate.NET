@@ -52,7 +52,6 @@ namespace Eventuate.Tests
                 {
                     case "boom":
                         throw TestException.Instance;
-                        return true;
                     case Ping p:
                         msgProbe.Tell(new Pong(p.I));
                         return true;
@@ -64,9 +63,7 @@ namespace Eventuate.Tests
             {
                 switch (evt)
                 {
-                    case "boom":
-                        throw TestException.Instance;
-                        return true;
+                    case "boom": throw TestException.Instance;
                     case string s:
                         msgProbe.Tell((s, LastVectorTimestamp, LastSequenceNr));
                         return true;

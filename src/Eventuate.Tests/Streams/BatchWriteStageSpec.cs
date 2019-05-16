@@ -39,7 +39,7 @@ namespace Eventuate.Tests.Streams
         
         private async Task<IEnumerable<DurableEvent>> Writer(IEnumerable<DurableEvent> events)
         {
-            if (events.Any(e => e.Payload == "boom"))
+            if (events.Any(e => Equals(e.Payload, "boom")))
                 throw TestException.Instance;
             else
             {
