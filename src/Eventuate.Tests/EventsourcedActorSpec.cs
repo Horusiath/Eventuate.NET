@@ -352,8 +352,8 @@ namespace Eventuate.Tests
             logProbe.Sender.Tell(new WriteSuccess(new[] {Event("a-1", 1), Event("a-2", 2)}, write.CorrelationId,
                 instanceId));
 
-            evtProbe.ExpectMsg(("a-1", Timestamp(1), Timestamp(1), 1));
-            evtProbe.ExpectMsg(("a-2", Timestamp(2), Timestamp(2), 2));
+            evtProbe.ExpectMsg(("a-1", Timestamp(1), Timestamp(1), 1L));
+            evtProbe.ExpectMsg(("a-2", Timestamp(2), Timestamp(2), 2L));
             cmdProbe.ExpectMsg(new Pong(1));
             cmdProbe.ExpectMsg(new Pong(2));
         }
@@ -643,8 +643,8 @@ namespace Eventuate.Tests
                 instanceId));
 
             cmdProbe.ExpectMsg(new Pong(1));
-            evtProbe.ExpectMsg(("a-1", Timestamp(1), Timestamp(1), 1));
-            evtProbe.ExpectMsg(("a-2", Timestamp(2), Timestamp(2), 2));
+            evtProbe.ExpectMsg(("a-1", Timestamp(1), Timestamp(1), 1L));
+            evtProbe.ExpectMsg(("a-2", Timestamp(2), Timestamp(2), 2L));
         }
 
         [Fact]
@@ -674,10 +674,10 @@ namespace Eventuate.Tests
             logProbe.Sender.Tell(new WriteSuccess(new[] {Event("b-1", 3), Event("b-2", 4)}, write2.CorrelationId,
                 next));
 
-            evtProbe.ExpectMsg(("a-1", Timestamp(1), Timestamp(1), 1));
-            evtProbe.ExpectMsg(("a-2", Timestamp(2), Timestamp(2), 2));
-            evtProbe.ExpectMsg(("b-1", Timestamp(3), Timestamp(3), 3));
-            evtProbe.ExpectMsg(("b-2", Timestamp(4), Timestamp(4), 4));
+            evtProbe.ExpectMsg(("a-1", Timestamp(1), Timestamp(1), 1L));
+            evtProbe.ExpectMsg(("a-2", Timestamp(2), Timestamp(2), 2L));
+            evtProbe.ExpectMsg(("b-1", Timestamp(3), Timestamp(3), 3L));
+            evtProbe.ExpectMsg(("b-2", Timestamp(4), Timestamp(4), 4L));
         }
 
         [Fact]
@@ -873,10 +873,10 @@ namespace Eventuate.Tests
             actor.Tell(new Written(eventB2));
             logProbe.Sender.Tell(new WriteSuccess(new[] {eventA1, eventA2}, write.CorrelationId, instanceId));
 
-            evtProbe.ExpectMsg(("b-1", Timestamp(0, 1), Timestamp(0, 1), 1));
-            evtProbe.ExpectMsg(("b-2", Timestamp(0, 2), Timestamp(0, 2), 2));
-            evtProbe.ExpectMsg(("a-1", Timestamp(3, 0), Timestamp(3, 2), 3));
-            evtProbe.ExpectMsg(("a-2", Timestamp(4, 0), Timestamp(4, 2), 4));
+            evtProbe.ExpectMsg(("b-1", Timestamp(0, 1), Timestamp(0, 1), 1L));
+            evtProbe.ExpectMsg(("b-2", Timestamp(0, 2), Timestamp(0, 2), 2L));
+            evtProbe.ExpectMsg(("a-1", Timestamp(3, 0), Timestamp(3, 2), 3L));
+            evtProbe.ExpectMsg(("a-2", Timestamp(4, 0), Timestamp(4, 2), 4L));
         }
 
         [Fact]
@@ -891,11 +891,11 @@ namespace Eventuate.Tests
             logProbe.Sender.Tell(
                 new WriteSuccess(new[] {Event("a", 1), Event("b", 2)}, write.CorrelationId, instanceId));
 
-            evtProbe.ExpectMsg(("a", Timestamp(1), Timestamp(1), 1));
-            cmdProbe.ExpectMsg(("a-1", Timestamp(1), Timestamp(1), 1));
+            evtProbe.ExpectMsg(("a", Timestamp(1), Timestamp(1), 1L));
+            cmdProbe.ExpectMsg(("a-1", Timestamp(1), Timestamp(1), 1L));
 
-            evtProbe.ExpectMsg(("b", Timestamp(2), Timestamp(2), 2));
-            cmdProbe.ExpectMsg(("b-2", Timestamp(2), Timestamp(2), 2));
+            evtProbe.ExpectMsg(("b", Timestamp(2), Timestamp(2), 2L));
+            cmdProbe.ExpectMsg(("b-2", Timestamp(2), Timestamp(2), 2L));
         }
 
         [Fact]
@@ -910,15 +910,15 @@ namespace Eventuate.Tests
             write.Events.ElementAt(2).Payload.Should().Be("c");
             logProbe.Sender.Tell(new WriteSuccess(new []{Event("a", 1), Event("b", 2), Event("c", 3)}, write.CorrelationId, instanceId));
 
-            evtProbe.ExpectMsg(("a", Timestamp(1), Timestamp(1), 1));
-            cmdProbe.ExpectMsg(("a", Timestamp(1), Timestamp(1), 1));
+            evtProbe.ExpectMsg(("a", Timestamp(1), Timestamp(1), 1L));
+            cmdProbe.ExpectMsg(("a", Timestamp(1), Timestamp(1), 1L));
             
-            evtProbe.ExpectMsg(("b", Timestamp(2), Timestamp(2), 2));
-            cmdProbe.ExpectMsg(("b", Timestamp(2), Timestamp(2), 2));
+            evtProbe.ExpectMsg(("b", Timestamp(2), Timestamp(2), 2L));
+            cmdProbe.ExpectMsg(("b", Timestamp(2), Timestamp(2), 2L));
             
-            evtProbe.ExpectMsg(("c", Timestamp(3), Timestamp(3), 3));
-            cmdProbe.ExpectMsg(("c", Timestamp(3), Timestamp(3), 3));
-            cmdProbe.ExpectMsg(("c", Timestamp(3), Timestamp(3), 3));
+            evtProbe.ExpectMsg(("c", Timestamp(3), Timestamp(3), 3L));
+            cmdProbe.ExpectMsg(("c", Timestamp(3), Timestamp(3), 3L));
+            cmdProbe.ExpectMsg(("c", Timestamp(3), Timestamp(3), 3L));
         }
 
         [Fact]
@@ -957,9 +957,9 @@ namespace Eventuate.Tests
             actor.Tell("status");
             actor.Tell(new DurableEvent("d", "B", null, ImmutableHashSet<string>.Empty, DateTime.MinValue, Timestamp(0, 3), "logB", "logA", 4));
 
-            evtProbe.ExpectMsg(("b", Timestamp(0, 1), Timestamp(0, 1), 2));
-            evtProbe.ExpectMsg(("status", Timestamp(0, 1), Timestamp(0, 1), 2));
-            evtProbe.ExpectMsg(("d", Timestamp(0, 3), Timestamp(0, 3), 4));
+            evtProbe.ExpectMsg(("b", Timestamp(0, 1), Timestamp(0, 1), 2L));
+            evtProbe.ExpectMsg(("status", Timestamp(0, 1), Timestamp(0, 1), 2L));
+            evtProbe.ExpectMsg(("d", Timestamp(0, 3), Timestamp(0, 3), 4L));
         }
 
         [Fact]
@@ -982,7 +982,7 @@ namespace Eventuate.Tests
                 e.SystemTimestamp, e.VectorTimestamp, e.ProcessId, "logA", 1, e.DeliveryId, e.PersistOnEventSequenceNr, e.PersistOnEventId);
             
             logProbe.Sender.Tell(new WriteSuccess(new []{event1}, write.CorrelationId, instanceId));
-            evtProbe.ExpectMsg((event1.Payload, event1.VectorTimestamp, event1.VectorTimestamp, event1.LocalSequenceNr));
+            evtProbe.ExpectMsg((event1.Payload.ToString(), event1.VectorTimestamp, event1.VectorTimestamp, event1.LocalSequenceNr));
             logProbe.Sender.Tell(new WriteSuccess(new []{event1}, write.CorrelationId, instanceId));
             evtProbe.ExpectNoMsg(Timeout);
         }
@@ -1067,7 +1067,7 @@ namespace Eventuate.Tests
             logProbe.Sender.Tell(new LoadSnapshotSuccess(snapshot, instanceId));
             logProbe.ExpectMsg(new Replay(actor, instanceId, 3));
             logProbe.Sender.Tell(new ReplaySuccess(Array.Empty<DurableEvent>(), 2, instanceId));
-            evtProbe.ExpectMsg((s, Timestamp(2), Timestamp(2, 4), 2));
+            evtProbe.ExpectMsg((s, Timestamp(2), Timestamp(2, 4), 2L));
         }
 
         [Fact]
@@ -1082,9 +1082,9 @@ namespace Eventuate.Tests
             logProbe.ExpectMsg(new Replay(actor, instanceId, 3));
             logProbe.Sender.Tell(new ReplaySuccess(new []{Event("c", 3), Event("d", 4)}, 4, instanceId));
             
-            evtProbe.ExpectMsg((s, Timestamp(2), Timestamp(2, 4), 2));
-            evtProbe.ExpectMsg((s.Add("c"), Timestamp(3), Timestamp(3, 4), 3));
-            evtProbe.ExpectMsg((s.Add("c").Add("d"), Timestamp(4), Timestamp(4, 4), 4));
+            evtProbe.ExpectMsg((s, Timestamp(2), Timestamp(2, 4), 2L));
+            evtProbe.ExpectMsg((s.Add("c"), Timestamp(3), Timestamp(3, 4), 3L));
+            evtProbe.ExpectMsg((s.Add("c").Add("d"), Timestamp(4), Timestamp(4, 4), 4L));
         }
 
         [Fact]
@@ -1101,7 +1101,7 @@ namespace Eventuate.Tests
             logProbe.Sender.Tell(new LoadSnapshotSuccess(snapshot, instanceId));
             logProbe.ExpectMsg(new Replay(actor, instanceId, 3));
             logProbe.Sender.Tell(new ReplaySuccess(Array.Empty<DurableEvent>(), 2, instanceId));
-            evtProbe.ExpectMsg((s, Timestamp(2), Timestamp(2, 4), 2));
+            evtProbe.ExpectMsg((s, Timestamp(2), Timestamp(2, 4), 2L));
             cmdProbe.ExpectMsg("x");
             cmdProbe.ExpectMsg("y");
         }
@@ -1116,8 +1116,8 @@ namespace Eventuate.Tests
             logProbe.Sender.Tell(new LoadSnapshotSuccess(snapshot, instanceId));
             logProbe.ExpectMsg(new Replay(actor, instanceId, 1));
             logProbe.Sender.Tell(new ReplaySuccess(new []{Event("a", 1), Event("b", 2)}, 2, instanceId));
-            evtProbe.ExpectMsg((ImmutableArray.Create("a"), Timestamp(1), Timestamp(1), 1));
-            evtProbe.ExpectMsg((ImmutableArray.Create("a", "b"), Timestamp(2), Timestamp(2), 2));
+            evtProbe.ExpectMsg((ImmutableArray.Create("a"), Timestamp(1), Timestamp(1), 1L));
+            evtProbe.ExpectMsg((ImmutableArray.Create("a", "b"), Timestamp(2), Timestamp(2), 2L));
         }
 
         [Fact]
@@ -1129,7 +1129,7 @@ namespace Eventuate.Tests
 
             var actor = RecoveredSnapshotActor();
             actor.Tell(new Written(event1));
-            evtProbe.ExpectMsg((ImmutableArray.Create("x"), Timestamp(0, 1), Timestamp(0, 1), 1));
+            evtProbe.ExpectMsg((ImmutableArray.Create("x"), Timestamp(0, 1), Timestamp(0, 1), 1L));
             actor.Tell(new Cmd("a"));
             actor.Tell(new Cmd("b"));
 
@@ -1139,8 +1139,8 @@ namespace Eventuate.Tests
             var write2 = logProbe.ExpectMsg<Write>();
             logProbe.Sender.Tell(new WriteSuccess(new []{event3}, write2.CorrelationId, instanceId));
 
-            evtProbe.ExpectMsg((ImmutableArray.Create("x", "a"), Timestamp(2, 1), Timestamp(2, 1), 2));
-            evtProbe.ExpectMsg((ImmutableArray.Create("x", "a", "b"), Timestamp(3, 1), Timestamp(3, 1), 3));
+            evtProbe.ExpectMsg((ImmutableArray.Create("x", "a"), Timestamp(2, 1), Timestamp(2, 1), 2L));
+            evtProbe.ExpectMsg((ImmutableArray.Create("x", "a", "b"), Timestamp(3, 1), Timestamp(3, 1), 3L));
             
             actor.Tell("snap");
             
