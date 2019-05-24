@@ -166,7 +166,7 @@ namespace Eventuate
                         {
                             foreach (var e in ws.Events)
                             {
-                                ReceiveEventInternal(e);
+                                ReceiveEvent(e);
                                 writeHandlers.First.Value(Try.Success(e.Payload));
                                 writeHandlers.RemoveFirst();
                             }

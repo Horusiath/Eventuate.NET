@@ -127,9 +127,10 @@ namespace Eventuate.Tests
                 {
                     case "boom": throw TestException.Instance;
                     case "x": return false;
-                    default:
-                        evtProbe.Tell((message, LastVectorTimestamp, CurrentVersion, LastSequenceNr));
+                    case string s:
+                        evtProbe.Tell((s, LastVectorTimestamp, CurrentVersion, LastSequenceNr));
                         return true;
+                    default: return false;
                 }
             }
 
@@ -275,7 +276,9 @@ namespace Eventuate.Tests
         #endregion
 
         private static readonly Config
-            TestConfig = ConfigurationFactory.ParseString("eventuate.log.write-timeout = 1s");
+            TestConfig = ConfigurationFactory.ParseString(@"
+                eventuate.log.write-timeout = 1s
+                akka.loglevel = DEBUG");
 
         private static readonly TimeSpan Timeout = TimeSpan.FromMilliseconds(200);
 

@@ -102,7 +102,6 @@ namespace Eventuate
             this.snapshotContext = new Lazy<BehaviorContext>(() => new BehaviorContext(OnSnapshot));
 
             this.ReplayBatchSize = settings.ReplayBatchSize;
-            Context.Become(Initiating(settings.ReplayRetryMax));
         }
 
         public IStash Stash { get; set; }
@@ -467,8 +466,8 @@ namespace Eventuate
                             // retry replay request while decreasing the remaining attempts
                             var attemptsRemaining = replayAttempts - 1;
                             Logger.Warning("replay failed [{0}] ({1} replay attempts remaining), scheduling retry in {2}ms", cause, attemptsRemaining, settings.ReplayRetryDelay.TotalMilliseconds);
-                            Context.Become(Initiating(attemptsRemaining));
                             Context.System.Scheduler.ScheduleTellOnce(settings.ReplayRetryDelay, Self, new ReplayRetry(rf.ReplayProgress), Self);
+                            Context.Become(Initiating(attemptsRemaining));
                         }
                     }
                     return true;
@@ -523,7 +522,7 @@ namespace Eventuate
             }
         }
 
-        protected sealed override bool Receive(object message) => throw new NotImplementedException();
+        protected sealed override bool Receive(object message) => Initiating(settings.ReplayRetryMax)(message);
 
         protected override void PreRestart(Exception reason, object message)
         {

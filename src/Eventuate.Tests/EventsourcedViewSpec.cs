@@ -14,6 +14,7 @@ using Akka.TestKit;
 using Akka.TestKit.Xunit2;
 using Eventuate.EventsourcingProtocol;
 using FluentAssertions;
+using FluentAssertions.Extensions;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -263,11 +264,7 @@ namespace Eventuate.Tests
         private readonly TestProbe logProbe;
         private readonly TestProbe msgProbe;
 
-        private const string TestConfig = @"
-          eventuate.log.replay-retry-max = 5
-          eventuate.log.replay-retry-delay = 5ms";
-
-        public EventsourcedViewSpec(ITestOutputHelper output) : base(config: TestConfig, output: output)
+        public EventsourcedViewSpec(ITestOutputHelper output) : base(config: TestHelpers.Config, output: output)
         {
             this.event1a = Event("a", 1);
             this.event1b = Event("b", 2);

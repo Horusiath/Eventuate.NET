@@ -8,9 +8,21 @@
 #endregion
 
 using System;
+using Akka.Configuration;
 
 namespace Eventuate.Tests
 {
+    public static class TestHelpers
+    {
+        public static Config Config { get; } = ConfigurationFactory.ParseString(@"
+            akka.loglevel = ""ERROR""
+            akka.test.single-expect-default = 20s
+            eventuate.log {
+                replay-retry-delay = 5ms
+                replay-retry-max = 0
+            }");
+    }
+    
     internal class TestException : Exception
     {
         public static readonly TestException Instance = new TestException();
