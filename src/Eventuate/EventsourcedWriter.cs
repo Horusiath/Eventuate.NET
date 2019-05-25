@@ -203,10 +203,13 @@ namespace Eventuate
         /// </summary>
         public virtual void WriteFailure(Exception cause) => throw new EventsourcedWriterWriteException("Write failed", cause);
 
-        internal override void ReceiveEventInternal(DurableEvent e)
+        internal override bool ReceiveEventInternal(DurableEvent e, Receive behavior)
         {
-            base.ReceiveEventInternal(e);
             numPending++;
+            var handled = base.ReceiveEventInternal(e, behavior);
+            if (!handled)
+                numPending--;
+            return handled;
         }
 
         protected override void Initialize()

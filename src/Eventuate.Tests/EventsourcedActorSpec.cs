@@ -21,6 +21,7 @@ using Xunit.Abstractions;
 
 namespace Eventuate.Tests
 {
+    using static EventsourcedViewSpec;
     public class EventsourcedActorSpec : TestKit
     {
         #region internal classes
@@ -319,18 +320,6 @@ namespace Eventuate.Tests
             return actor;
         }
 
-        private static VectorTime Timestamp(long a = 0, long b = 0)
-        {
-            if (a == 0 && b == 0) return VectorTime.Zero;
-            if (a == 0) return new VectorTime(("logB", b));
-            if (b == 0) return new VectorTime(("logA", a));
-            return new VectorTime(("logA", a), ("logB", b));
-        }
-
-        private static DurableEvent Event(object payload, long sequenceNr, string emitterId = null) =>
-            new DurableEvent(payload, emitterId ?? "A", null, ImmutableHashSet<string>.Empty, DateTime.MinValue,
-                Timestamp(sequenceNr), "logA", "logA", sequenceNr);
-
         private void ProcessWrite(long sequenceNr)
         {
             var write = logProbe.ExpectMsg<Write>();
@@ -371,7 +360,7 @@ namespace Eventuate.Tests
                 instanceId));
 
             var next = instanceId + 1;
-            logProbe.ExpectMsg(new LoadSnapshot("A", next));
+            logProbe.ExpectMsg(new LoadSnapshot(EmitterIdA, next));
             logProbe.Sender.Tell(new LoadSnapshotSuccess(null, next));
             logProbe.ExpectMsg(new Replay(actor, next, 1));
             logProbe.Sender.Tell(new ReplaySuccess(new[] {Event("a-1", 1), Event("a-2", 2)}, 2, next));
@@ -384,10 +373,10 @@ namespace Eventuate.Tests
             logProbe.Sender.Tell(new WriteSuccess(new[] {Event("b-1", 3), Event("b-2", 4)}, write2.CorrelationId,
                 next));
 
-            evtProbe.ExpectMsg(("a-1", Timestamp(1), Timestamp(1), 1));
-            evtProbe.ExpectMsg(("a-2", Timestamp(2), Timestamp(2), 2));
-            evtProbe.ExpectMsg(("b-1", Timestamp(3), Timestamp(3), 3));
-            evtProbe.ExpectMsg(("b-2", Timestamp(4), Timestamp(4), 4));
+            evtProbe.ExpectMsg(("a-1", Timestamp(1), Timestamp(1), 1L));
+            evtProbe.ExpectMsg(("a-2", Timestamp(2), Timestamp(2), 2L));
+            evtProbe.ExpectMsg(("b-1", Timestamp(3), Timestamp(3), 3L));
+            evtProbe.ExpectMsg(("b-2", Timestamp(4), Timestamp(4), 4L));
         }
 
         [Fact]
@@ -859,15 +848,15 @@ namespace Eventuate.Tests
             write.Events.ElementAt(0).Payload.Should().Be("a-1");
             write.Events.ElementAt(1).Payload.Should().Be("a-2");
 
-            var eventB1 = new DurableEvent("b-1", "B", null, ImmutableHashSet<string>.Empty, default, Timestamp(0, 1),
-                "logB", "logA", 1);
-            var eventB2 = new DurableEvent("b-2", "B", null, ImmutableHashSet<string>.Empty, default, Timestamp(0, 2),
-                "logB", "logA", 2);
+            var eventB1 = new DurableEvent("b-1", EmitterIdB, null, ImmutableHashSet<string>.Empty,
+                default, Timestamp(0, 1), LogIdB, LogIdA, 1L);
+            var eventB2 = new DurableEvent("b-2", EmitterIdB, null, ImmutableHashSet<string>.Empty, 
+                default, Timestamp(0, 2), LogIdB, LogIdA, 2);
 
-            var eventA1 = new DurableEvent("a-1", "A", null, ImmutableHashSet<string>.Empty, default, Timestamp(3, 0),
-                "logA", "logA", 3);
-            var eventA2 = new DurableEvent("a-2", "A", null, ImmutableHashSet<string>.Empty, default, Timestamp(4, 0),
-                "logA", "logA", 4);
+            var eventA1 = new DurableEvent("a-1", EmitterIdA, null, ImmutableHashSet<string>.Empty, 
+                default, Timestamp(3, 0), LogIdA, LogIdA, 3);
+            var eventA2 = new DurableEvent("a-2", EmitterIdA, null, ImmutableHashSet<string>.Empty, 
+                default, Timestamp(4, 0), LogIdA, LogIdA, 4);
 
             actor.Tell(new Written(eventB1));
             actor.Tell(new Written(eventB2));
@@ -932,8 +921,8 @@ namespace Eventuate.Tests
             var event2 = write.Events.ElementAt(1);
             logProbe.Sender.Tell(new WriteFailure(new []{event1, event2}, TestException.Instance, write.CorrelationId, instanceId));
 
-            cmdProbe.ExpectMsg((TestException.Instance, event1.VectorTimestamp, event1.VectorTimestamp, event1.LocalSequenceNr));
-            cmdProbe.ExpectMsg((TestException.Instance, event2.VectorTimestamp, event2.VectorTimestamp, event2.LocalSequenceNr));
+            cmdProbe.ExpectMsg(((Exception)TestException.Instance, event1.VectorTimestamp, event1.VectorTimestamp, event1.LocalSequenceNr));
+            cmdProbe.ExpectMsg(((Exception)TestException.Instance, event2.VectorTimestamp, event2.VectorTimestamp, event2.LocalSequenceNr));
         }
 
         [Fact]
@@ -952,14 +941,16 @@ namespace Eventuate.Tests
         {
             var actor = RecoveredEventsourcedActor(stateSync: true);
 
-            actor.Tell(new Written(new DurableEvent("b", "B", null, ImmutableHashSet<string>.Empty, DateTime.MinValue, Timestamp(0, 1), "logB", "logA", 2)));
-            actor.Tell(new Written(new DurableEvent("x", "B", null, ImmutableHashSet<string>.Empty, DateTime.MinValue, Timestamp(0, 2), "logB", "logA", 3)));
+            actor.Tell(new Written(Event2B));
+            actor.Tell(new Written(new DurableEvent("x", Event2C.EmitterId, Event2C.EmitterAggregateId,
+                Event2C.CustomDestinationAggregateIds, Event2C.SystemTimestamp, 
+                Event2C.VectorTimestamp, Event2C.ProcessId, Event2C.LocalLogId, Event2C.LocalSequenceNr)));
             actor.Tell("status");
-            actor.Tell(new DurableEvent("d", "B", null, ImmutableHashSet<string>.Empty, DateTime.MinValue, Timestamp(0, 3), "logB", "logA", 4));
+            actor.Tell(new Written(Event2D));
 
-            evtProbe.ExpectMsg(("b", Timestamp(0, 1), Timestamp(0, 1), 2L));
-            evtProbe.ExpectMsg(("status", Timestamp(0, 1), Timestamp(0, 1), 2L));
-            evtProbe.ExpectMsg(("d", Timestamp(0, 3), Timestamp(0, 3), 4L));
+            evtProbe.ExpectMsg(("b", Event2B.VectorTimestamp, Timestamp(0, 1), Event2B.LocalSequenceNr));
+            cmdProbe.ExpectMsg(("status", Event2B.VectorTimestamp, Timestamp(0, 1), Event2B.LocalSequenceNr));
+            evtProbe.ExpectMsg(("d", Event2D.VectorTimestamp, Timestamp(0, 3), Event2D.LocalSequenceNr));
         }
 
         [Fact]

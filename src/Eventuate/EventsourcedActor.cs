@@ -55,10 +55,14 @@ namespace Eventuate
             CurrentVersion = snapshot.CurrentTime;
         }
 
-        internal override void ReceiveEventInternal(DurableEvent e)
+        internal override bool ReceiveEventInternal(DurableEvent e, Receive behavior)
         {
-            base.ReceiveEventInternal(e);
+            var previousVersion = this.CurrentVersion;
             this.UpdateVersion(e);
+            var handled = base.ReceiveEventInternal(e, behavior);
+            if (!handled)
+                this.CurrentVersion = previousVersion;
+            return handled;
         }
 
         #endregion
@@ -193,7 +197,7 @@ namespace Eventuate
                         {
                             foreach (var e in wf.Events)
                             {
-                                ReceiveEventInternal(e);
+                                ReceiveEventInternal(e, wf.Cause);
                                 writeHandlers.First.Value(Try.Failure<object>(wf.Cause));
                                 writeHandlers.RemoveFirst();
                             }

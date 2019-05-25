@@ -246,10 +246,14 @@ namespace Eventuate
             this.CurrentVersion = snapshot.CurrentTime;
         }
 
-        internal override void ReceiveEventInternal(DurableEvent e)
+        internal override bool ReceiveEventInternal(DurableEvent e, Receive behavior)
         {
-            base.ReceiveEventInternal(e);
+            var previousVersion = this.CurrentVersion;
             this.UpdateVersion(e);
+            var handled = base.ReceiveEventInternal(e, behavior);
+            if (handled)
+                this.CurrentVersion = previousVersion;
+            return handled;
         }
 
         protected override DurableEvent CreateEvent(object payload, ImmutableHashSet<string> customDestinationAggregateIds) =>

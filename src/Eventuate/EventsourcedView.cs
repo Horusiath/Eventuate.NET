@@ -263,8 +263,7 @@ namespace Eventuate
 
             lastHandledEvent = e;
             isEventHandling = true;
-            ReceiveEventInternal(e);
-            if (behavior(e.Payload))
+            if (ReceiveEventInternal(e, behavior))
             {
                 if (!isRecovering) VersionChanged(CurrentVersion);
             }
@@ -277,7 +276,11 @@ namespace Eventuate
             lastReceivedSequenceNr = e.LocalSequenceNr;
         }
 
-        internal virtual void ReceiveEventInternal(DurableEvent e) => lastHandledEvent = e;
+        internal virtual bool ReceiveEventInternal(DurableEvent e, Receive behavior)
+        {
+            lastHandledEvent = e;
+            return behavior(e.Payload);
+        }
 
         internal virtual void ReceiveEventInternal(DurableEvent e, Exception failure) => lastHandledEvent = e;
 
@@ -527,7 +530,7 @@ namespace Eventuate
         protected override void PreRestart(Exception reason, object message)
         {
             isRecovering = false;
-            //Stash.UnstashAll();
+            UnstashAll();
             base.PreRestart(reason, message);
         }
 

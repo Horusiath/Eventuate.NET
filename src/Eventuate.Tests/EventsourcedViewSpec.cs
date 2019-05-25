@@ -22,10 +22,10 @@ namespace Eventuate.Tests
 {
     public class EventsourcedViewSpec : TestKit
     {
-        private const string EmitterIdA = "A";
-        private const string EmitterIdB = "A";
-        private const string LogIdA = "logA";
-        private const string LogIdB = "logA";
+        internal const string EmitterIdA = "A";
+        internal const string EmitterIdB = "B";
+        internal const string LogIdA = "logA";
+        internal const string LogIdB = "logB";
 
         #region internal classes
 
@@ -239,7 +239,7 @@ namespace Eventuate.Tests
 
         #endregion
 
-        private static VectorTime Timestamp(long a = 0, long b = 0)
+        internal static VectorTime Timestamp(long a = 0, long b = 0)
         {
             if (a == 0 && b == 0) return VectorTime.Zero;
             if (a == 0) return new VectorTime((LogIdB, b));
@@ -247,18 +247,22 @@ namespace Eventuate.Tests
             return new VectorTime((LogIdA, a), (LogIdB, b));
         }
 
-        private static DurableEvent Event(object payload, long sequenceNr, string emitterId = null) =>
+        internal static DurableEvent Event(object payload, long sequenceNr, string emitterId = null) =>
             new DurableEvent(payload, emitterId ?? EmitterIdA, null, ImmutableHashSet<string>.Empty, DateTime.MinValue,
                 Timestamp(sequenceNr), LogIdA, LogIdA, sequenceNr);
 
-        private readonly DurableEvent event1a;
-        private readonly DurableEvent event1b;
-        private readonly DurableEvent event1c;
+        private static readonly DurableEvent Event1A = Event("a", 1);
+        private static readonly DurableEvent Event1B = Event("b", 2);
+        private static readonly DurableEvent Event1C = Event("c", 3);
 
-        private readonly DurableEvent event2a;
-        private readonly DurableEvent event2b;
-        private readonly DurableEvent event2c;
-        private readonly DurableEvent event2d;
+        internal static readonly DurableEvent Event2A = new DurableEvent("a", EmitterIdA, null, ImmutableHashSet<string>.Empty, DateTime.MinValue,
+            Timestamp(1, 0), LogIdA, LogIdA, 1);
+        internal static readonly DurableEvent Event2B = new DurableEvent("b", EmitterIdB, null, ImmutableHashSet<string>.Empty, DateTime.MinValue,
+            Timestamp(0, 1), LogIdB, LogIdA, 2);
+        internal static readonly DurableEvent Event2C = new DurableEvent("c", EmitterIdB, null, ImmutableHashSet<string>.Empty, DateTime.MinValue,
+            Timestamp(0, 2), LogIdB, LogIdA, 3);
+        internal static readonly DurableEvent Event2D = new DurableEvent("d", EmitterIdB, null, ImmutableHashSet<string>.Empty, DateTime.MinValue,
+            Timestamp(0, 3), LogIdB, LogIdA, 4);
 
         private readonly int instanceId;
         private readonly TestProbe logProbe;
@@ -266,19 +270,6 @@ namespace Eventuate.Tests
 
         public EventsourcedViewSpec(ITestOutputHelper output) : base(config: TestHelpers.Config, output: output)
         {
-            this.event1a = Event("a", 1);
-            this.event1b = Event("b", 2);
-            this.event1c = Event("c", 3);
-
-            this.event2a = new DurableEvent("a", EmitterIdA, null, ImmutableHashSet<string>.Empty, DateTime.MinValue,
-                Timestamp(1, 0), LogIdA, LogIdA, 1);
-            this.event2b = new DurableEvent("b", EmitterIdB, null, ImmutableHashSet<string>.Empty, DateTime.MinValue,
-                Timestamp(0, 1), LogIdB, LogIdA, 2);
-            this.event2c = new DurableEvent("c", EmitterIdB, null, ImmutableHashSet<string>.Empty, DateTime.MinValue,
-                Timestamp(0, 2), LogIdB, LogIdA, 3);
-            this.event2d = new DurableEvent("d", EmitterIdB, null, ImmutableHashSet<string>.Empty, DateTime.MinValue,
-                Timestamp(0, 3), LogIdB, LogIdA, 4);
-
             this.instanceId = EventsourcedView.InstanceIdCounter.Current;
             this.logProbe = CreateTestProbe();
             this.msgProbe = CreateTestProbe();
@@ -326,10 +317,10 @@ namespace Eventuate.Tests
             logProbe.ExpectMsg(new LoadSnapshot(EmitterIdA, instanceId));
             logProbe.Sender.Tell(new LoadSnapshotSuccess(null, instanceId));
             logProbe.ExpectMsg(new Replay(actor, instanceId, 1));
-            logProbe.Sender.Tell(new ReplaySuccess(new[] {event1a, event1b}, event1b.LocalSequenceNr, instanceId));
+            logProbe.Sender.Tell(new ReplaySuccess(new[] {Event1A, Event1B}, Event1B.LocalSequenceNr, instanceId));
 
-            msgProbe.ExpectMsg(("a", event1a.VectorTimestamp, event1a.LocalSequenceNr));
-            msgProbe.ExpectMsg(("b", event1b.VectorTimestamp, event1b.LocalSequenceNr));
+            msgProbe.ExpectMsg(("a", Event1A.VectorTimestamp, Event1A.LocalSequenceNr));
+            msgProbe.ExpectMsg(("b", Event1B.VectorTimestamp, Event1B.LocalSequenceNr));
         }
 
         [Fact]
@@ -340,13 +331,13 @@ namespace Eventuate.Tests
             logProbe.ExpectMsg(new LoadSnapshot(EmitterIdA, instanceId));
             logProbe.Sender.Tell(new LoadSnapshotSuccess(null, instanceId));
             logProbe.ExpectMsg(new Replay(actor, instanceId, 1, 2));
-            logProbe.Sender.Tell(new ReplaySuccess(new[] {event1a, event1b}, event1b.LocalSequenceNr, instanceId));
-            logProbe.ExpectMsg(new Replay(null, instanceId, event1b.LocalSequenceNr + 1L, 2));
-            logProbe.Sender.Tell(new ReplaySuccess(new[] {event1c}, event1c.LocalSequenceNr, instanceId));
+            logProbe.Sender.Tell(new ReplaySuccess(new[] {Event1A, Event1B}, Event1B.LocalSequenceNr, instanceId));
+            logProbe.ExpectMsg(new Replay(null, instanceId, Event1B.LocalSequenceNr + 1L, 2));
+            logProbe.Sender.Tell(new ReplaySuccess(new[] {Event1C}, Event1C.LocalSequenceNr, instanceId));
 
-            msgProbe.ExpectMsg(("a", event1a.VectorTimestamp, event1a.LocalSequenceNr));
-            msgProbe.ExpectMsg(("b", event1b.VectorTimestamp, event1b.LocalSequenceNr));
-            msgProbe.ExpectMsg(("c", event1c.VectorTimestamp, event1c.LocalSequenceNr));
+            msgProbe.ExpectMsg(("a", Event1A.VectorTimestamp, Event1A.LocalSequenceNr));
+            msgProbe.ExpectMsg(("b", Event1B.VectorTimestamp, Event1B.LocalSequenceNr));
+            msgProbe.ExpectMsg(("c", Event1C.VectorTimestamp, Event1C.LocalSequenceNr));
         }
 
         [Fact]
@@ -357,17 +348,17 @@ namespace Eventuate.Tests
             logProbe.ExpectMsg(new LoadSnapshot(EmitterIdA, instanceId));
             logProbe.Sender.Tell(new LoadSnapshotSuccess(null, instanceId));
             logProbe.ExpectMsg(new Replay(actor, instanceId, 1));
-            logProbe.Sender.Tell(new ReplaySuccess(new []{event1a, Event("boom", 2), event1c}, event1c.LocalSequenceNr, instanceId));
+            logProbe.Sender.Tell(new ReplaySuccess(new []{Event1A, Event("boom", 2), Event1C}, Event1C.LocalSequenceNr, instanceId));
 
             logProbe.ExpectMsg(new LoadSnapshot(EmitterIdA, instanceId + 1));
             logProbe.Sender.Tell(new LoadSnapshotSuccess(null, instanceId + 1));
             logProbe.ExpectMsg(new Replay(actor, instanceId + 1, 1));
-            logProbe.Sender.Tell(new ReplaySuccess(new []{event1a, event1b, event1c}, event1c.LocalSequenceNr, instanceId + 1));
+            logProbe.Sender.Tell(new ReplaySuccess(new []{Event1A, Event1B, Event1C}, Event1C.LocalSequenceNr, instanceId + 1));
 
-            msgProbe.ExpectMsg(("a", event1a.VectorTimestamp, event1a.LocalSequenceNr));
-            msgProbe.ExpectMsg(("a", event1a.VectorTimestamp, event1a.LocalSequenceNr));
-            msgProbe.ExpectMsg(("b", event1b.VectorTimestamp, event1b.LocalSequenceNr));
-            msgProbe.ExpectMsg(("c", event1c.VectorTimestamp, event1c.LocalSequenceNr));
+            msgProbe.ExpectMsg(("a", Event1A.VectorTimestamp, Event1A.LocalSequenceNr));
+            msgProbe.ExpectMsg(("a", Event1A.VectorTimestamp, Event1A.LocalSequenceNr));
+            msgProbe.ExpectMsg(("b", Event1B.VectorTimestamp, Event1B.LocalSequenceNr));
+            msgProbe.ExpectMsg(("c", Event1C.VectorTimestamp, Event1C.LocalSequenceNr));
         }
 
         [Fact]
@@ -377,10 +368,10 @@ namespace Eventuate.Tests
 
             logProbe.ExpectMsg(new Replay(actor, instanceId, 2));
 
-            logProbe.Sender.Tell(new ReplaySuccess(new[] {event1b, event1c}, event1c.LocalSequenceNr, instanceId));
+            logProbe.Sender.Tell(new ReplaySuccess(new[] {Event1B, Event1C}, Event1C.LocalSequenceNr, instanceId));
             
-            msgProbe.ExpectMsg(("b", event1b.VectorTimestamp, event1b.LocalSequenceNr));
-            msgProbe.ExpectMsg(("c", event1c.VectorTimestamp, event1c.LocalSequenceNr));
+            msgProbe.ExpectMsg(("b", Event1B.VectorTimestamp, Event1B.LocalSequenceNr));
+            msgProbe.ExpectMsg(("c", Event1C.VectorTimestamp, Event1C.LocalSequenceNr));
         }
 
         [Fact]
@@ -402,12 +393,12 @@ namespace Eventuate.Tests
             actor.Tell(new Ping(2));
             actor.Tell(new Ping(3));
             
-            logProbe.Sender.Tell(new ReplaySuccess(new []{event1a, event1b}, event1b.LocalSequenceNr, instanceId));
-            logProbe.ExpectMsg(new Replay(null, instanceId, event1b.LocalSequenceNr + 1));
-            logProbe.Sender.Tell(new ReplaySuccess(Array.Empty<DurableEvent>(), event1b.LocalSequenceNr, instanceId));
+            logProbe.Sender.Tell(new ReplaySuccess(new []{Event1A, Event1B}, Event1B.LocalSequenceNr, instanceId));
+            logProbe.ExpectMsg(new Replay(null, instanceId, Event1B.LocalSequenceNr + 1));
+            logProbe.Sender.Tell(new ReplaySuccess(Array.Empty<DurableEvent>(), Event1B.LocalSequenceNr, instanceId));
 
-            msgProbe.ExpectMsg(("a", event1a.VectorTimestamp, event1a.LocalSequenceNr));
-            msgProbe.ExpectMsg(("b", event1b.VectorTimestamp, event1b.LocalSequenceNr));
+            msgProbe.ExpectMsg(("a", Event1A.VectorTimestamp, Event1A.LocalSequenceNr));
+            msgProbe.ExpectMsg(("b", Event1B.VectorTimestamp, Event1B.LocalSequenceNr));
             msgProbe.ExpectMsg(new Pong(1));
             msgProbe.ExpectMsg(new Pong(2));
             msgProbe.ExpectMsg(new Pong(3));
@@ -425,20 +416,20 @@ namespace Eventuate.Tests
             actor.Tell(new Ping(1));
             actor.Tell(new Ping(2));
             
-            logProbe.Sender.Tell(new ReplaySuccess(new []{event1a, Event("boom", 2), event1c}, event1c.LocalSequenceNr, instanceId));
+            logProbe.Sender.Tell(new ReplaySuccess(new []{Event1A, Event("boom", 2), Event1C}, Event1C.LocalSequenceNr, instanceId));
 
             var nextInstanceId = instanceId + 1;
             logProbe.ExpectMsg(new LoadSnapshot(EmitterIdA, nextInstanceId));
             logProbe.Sender.Tell(new LoadSnapshotSuccess(null, nextInstanceId));
             logProbe.ExpectMsg(new Replay(actor, nextInstanceId, 1));
-            logProbe.Sender.Tell(new ReplaySuccess(new []{event1a, event1b, event1c}, event1c.LocalSequenceNr, nextInstanceId));
-            logProbe.ExpectMsg(new Replay(null, nextInstanceId, event1c.LocalSequenceNr + 1));
-            logProbe.Sender.Tell(new ReplaySuccess(Array.Empty<DurableEvent>(), event1c.LocalSequenceNr, nextInstanceId));
+            logProbe.Sender.Tell(new ReplaySuccess(new []{Event1A, Event1B, Event1C}, Event1C.LocalSequenceNr, nextInstanceId));
+            logProbe.ExpectMsg(new Replay(null, nextInstanceId, Event1C.LocalSequenceNr + 1));
+            logProbe.Sender.Tell(new ReplaySuccess(Array.Empty<DurableEvent>(), Event1C.LocalSequenceNr, nextInstanceId));
 
-            msgProbe.ExpectMsg(("a", event1a.VectorTimestamp, event1a.LocalSequenceNr));
-            msgProbe.ExpectMsg(("a", event1a.VectorTimestamp, event1a.LocalSequenceNr));
-            msgProbe.ExpectMsg(("b", event1b.VectorTimestamp, event1b.LocalSequenceNr));
-            msgProbe.ExpectMsg(("c", event1c.VectorTimestamp, event1c.LocalSequenceNr));
+            msgProbe.ExpectMsg(("a", Event1A.VectorTimestamp, Event1A.LocalSequenceNr));
+            msgProbe.ExpectMsg(("a", Event1A.VectorTimestamp, Event1A.LocalSequenceNr));
+            msgProbe.ExpectMsg(("b", Event1B.VectorTimestamp, Event1B.LocalSequenceNr));
+            msgProbe.ExpectMsg(("c", Event1C.VectorTimestamp, Event1C.LocalSequenceNr));
             msgProbe.ExpectMsg(new Pong(1));
             msgProbe.ExpectMsg(new Pong(2));
         }
@@ -452,17 +443,17 @@ namespace Eventuate.Tests
             logProbe.Sender.Tell(new LoadSnapshotSuccess(null, instanceId));
             logProbe.ExpectMsg(new Replay(actor, instanceId, 1));
             
-            actor.Tell(new Written(event2c));    // live event
-            actor.Tell(new Written(event2d));    // live event
+            actor.Tell(new Written(Event2C));    // live event
+            actor.Tell(new Written(Event2D));    // live event
             
-            logProbe.Sender.Tell(new ReplaySuccess(new []{ event2a, event2b}, event2b.LocalSequenceNr, instanceId));
-            logProbe.ExpectMsg(new Replay(null, instanceId, event2b.LocalSequenceNr + 1));
-            logProbe.Sender.Tell(new ReplaySuccess(Array.Empty<DurableEvent>(), event2b.LocalSequenceNr, instanceId));
+            logProbe.Sender.Tell(new ReplaySuccess(new []{ Event2A, Event2B}, Event2B.LocalSequenceNr, instanceId));
+            logProbe.ExpectMsg(new Replay(null, instanceId, Event2B.LocalSequenceNr + 1));
+            logProbe.Sender.Tell(new ReplaySuccess(Array.Empty<DurableEvent>(), Event2B.LocalSequenceNr, instanceId));
 
-            msgProbe.ExpectMsg(("a", event2a.VectorTimestamp, event2a.LocalSequenceNr));
-            msgProbe.ExpectMsg(("b", event2b.VectorTimestamp, event2b.LocalSequenceNr));
-            msgProbe.ExpectMsg(("c", event2c.VectorTimestamp, event2c.LocalSequenceNr));
-            msgProbe.ExpectMsg(("d", event2d.VectorTimestamp, event2d.LocalSequenceNr));
+            msgProbe.ExpectMsg(("a", Event2A.VectorTimestamp, Event2A.LocalSequenceNr));
+            msgProbe.ExpectMsg(("b", Event2B.VectorTimestamp, Event2B.LocalSequenceNr));
+            msgProbe.ExpectMsg(("c", Event2C.VectorTimestamp, Event2C.LocalSequenceNr));
+            msgProbe.ExpectMsg(("d", Event2D.VectorTimestamp, Event2D.LocalSequenceNr));
         }
 
         [Fact]
@@ -475,29 +466,29 @@ namespace Eventuate.Tests
             logProbe.Sender.Tell(new LoadSnapshotSuccess(null, instanceId));
             logProbe.ExpectMsg(new Replay(actor, instanceId, 1));
             
-            logProbe.Sender.Tell(new ReplaySuccess(new []{event2a, event2b}, event2b.LocalSequenceNr, instanceId));
-            logProbe.ExpectMsg(new Replay(null, instanceId, event2b.LocalSequenceNr + 1));
-            logProbe.Sender.Tell(new ReplaySuccess(Array.Empty<DurableEvent>(), event2b.LocalSequenceNr, instanceId));
+            logProbe.Sender.Tell(new ReplaySuccess(new []{Event2A, Event2B}, Event2B.LocalSequenceNr, instanceId));
+            logProbe.ExpectMsg(new Replay(null, instanceId, Event2B.LocalSequenceNr + 1));
+            logProbe.Sender.Tell(new ReplaySuccess(Array.Empty<DurableEvent>(), Event2B.LocalSequenceNr, instanceId));
             
             actor.Tell("boom");
-            actor.Tell(new Written(event2c));    // live event
+            actor.Tell(new Written(Event2C));    // live event
 
-            msgProbe.ExpectMsg(("a", event2a.VectorTimestamp, event2a.LocalSequenceNr));
-            msgProbe.ExpectMsg(("b", event2b.VectorTimestamp, event2b.LocalSequenceNr));
+            msgProbe.ExpectMsg(("a", Event2A.VectorTimestamp, Event2A.LocalSequenceNr));
+            msgProbe.ExpectMsg(("b", Event2B.VectorTimestamp, Event2B.LocalSequenceNr));
 
             logProbe.ExpectMsg(new LoadSnapshot(EmitterIdA, next));
             logProbe.Sender.Tell(new LoadSnapshotSuccess(null, next));
             logProbe.ExpectMsg(new Replay(actor, next, 1));
-            logProbe.Sender.Tell(new ReplaySuccess(new []{event2a, event2b, event2c}, event2c.LocalSequenceNr, next));
-            logProbe.ExpectMsg(new Replay(null, next, event2c.LocalSequenceNr + 1));
-            logProbe.Sender.Tell(new ReplaySuccess(Array.Empty<DurableEvent>(), event2c.LocalSequenceNr, next));
+            logProbe.Sender.Tell(new ReplaySuccess(new []{Event2A, Event2B, Event2C}, Event2C.LocalSequenceNr, next));
+            logProbe.ExpectMsg(new Replay(null, next, Event2C.LocalSequenceNr + 1));
+            logProbe.Sender.Tell(new ReplaySuccess(Array.Empty<DurableEvent>(), Event2C.LocalSequenceNr, next));
             
-            actor.Tell(new Written(event2d));    // live event
+            actor.Tell(new Written(Event2D));    // live event
 
-            msgProbe.ExpectMsg(("a", event2a.VectorTimestamp, event2a.LocalSequenceNr));
-            msgProbe.ExpectMsg(("b", event2b.VectorTimestamp, event2b.LocalSequenceNr));
-            msgProbe.ExpectMsg(("c", event2c.VectorTimestamp, event2c.LocalSequenceNr));
-            msgProbe.ExpectMsg(("d", event2d.VectorTimestamp, event2d.LocalSequenceNr));
+            msgProbe.ExpectMsg(("a", Event2A.VectorTimestamp, Event2A.LocalSequenceNr));
+            msgProbe.ExpectMsg(("b", Event2B.VectorTimestamp, Event2B.LocalSequenceNr));
+            msgProbe.ExpectMsg(("c", Event2C.VectorTimestamp, Event2C.LocalSequenceNr));
+            msgProbe.ExpectMsg(("d", Event2D.VectorTimestamp, Event2D.LocalSequenceNr));
         }
 
         [Fact]

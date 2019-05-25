@@ -144,6 +144,7 @@ namespace Eventuate
                 {
                     var (processId, localTime) = e.Current;
                     sb.Append('\"').Append(processId).Append("\":").Append(localTime);
+                    
                     while (e.MoveNext())
                     {
                         (processId, localTime) = e.Current;
