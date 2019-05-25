@@ -125,15 +125,19 @@ namespace Eventuate
             return s;
         }
 
-        internal override void SnapshotLoaded(Snapshot snapshot)
+        internal override bool SnapshotLoaded(Snapshot snapshot, Receive behavior)
         {
-            base.SnapshotLoaded(snapshot);
-            var builder = unconfirmed.ToBuilder();
+            var previouslyUnconfirmed = this.unconfirmed;
+            var builder = this.unconfirmed.ToBuilder();
             foreach (var delivery in snapshot.DeliveryAttempts)
             {
                 builder[delivery.DeliveryId] = delivery;
             }
-            unconfirmed = builder.ToImmutable();
+            this.unconfirmed = builder.ToImmutable();
+            var handled = base.SnapshotLoaded(snapshot, behavior);
+            if (!handled)
+                this.unconfirmed = previouslyUnconfirmed;
+            return handled;
         }
 
         internal override void Recovered()

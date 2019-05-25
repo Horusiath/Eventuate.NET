@@ -49,10 +49,14 @@ namespace Eventuate
         #region EventSourcedVersion
 
 
-        internal override void SnapshotLoaded(Snapshot snapshot)
+        internal override bool SnapshotLoaded(Snapshot snapshot, Receive behavior)
         {
-            base.SnapshotLoaded(snapshot);
+            var prev = this.CurrentVersion;
             CurrentVersion = snapshot.CurrentTime;
+            var handled = base.SnapshotLoaded(snapshot, behavior);
+            if (!handled)
+                CurrentVersion = prev;
+            return handled;
         }
 
         internal override bool ReceiveEventInternal(DurableEvent e, Receive behavior)

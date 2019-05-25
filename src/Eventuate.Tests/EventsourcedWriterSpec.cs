@@ -90,6 +90,7 @@ namespace Eventuate.Tests
         #endregion
 
         private static readonly Config TestConfig = ConfigurationFactory.ParseString(@"
+          akka.loglevel = DEBUG
           eventuate.log.replay-retry-max = 1
           eventuate.log.replay-retry-delay = 5ms");
 
@@ -157,7 +158,7 @@ namespace Eventuate.Tests
         {
             if (result.TryGetValue(out var s))
             {
-                rwProbe.Sender.Tell(new Status.Success(s));
+                rwProbe.Sender.Tell(s);
                 appProbe.ExpectMsg(s);
             }
             else
@@ -291,12 +292,12 @@ namespace Eventuate.Tests
             logProbe.ExpectMsg(new Replay(actor, instanceId, 1, 2));
             logProbe.Sender.Tell(new ReplaySuccess(new []{Event("a", 1), Event("b", 2)}, 2L, instanceId));
             actor.Tell("cmd");
-            appProbe.ExpectMsg(("a", 1));
-            appProbe.ExpectMsg(("b", 2));
+            appProbe.ExpectMsg(("a", 1L));
+            appProbe.ExpectMsg(("b", 2L));
             ProcessWrite(Try.Success("ws"));
             logProbe.ExpectMsg(new Replay(null, instanceId, 3, 2));
             logProbe.Sender.Tell(new ReplaySuccess(new []{ Event("c", 3)}, 3L, instanceId));
-            appProbe.ExpectMsg(("c", 3));
+            appProbe.ExpectMsg(("c", 3L));
             ProcessWrite(Try.Success("ws"));
             logProbe.ExpectMsg(new Replay(null, instanceId, 4L, 2));
             logProbe.Sender.Tell(new ReplaySuccess(Array.Empty<DurableEvent>(), 3L, instanceId));
@@ -322,8 +323,8 @@ namespace Eventuate.Tests
             ProcessLoad(actor);
             logProbe.ExpectMsg(new Replay(actor, instanceId, 1, 2));
             logProbe.Sender.Tell(new ReplaySuccess(new []{Event("a", 1), Event("b", 2)}, 2L, instanceId));
-            appProbe.ExpectMsg(("a", 1));
-            appProbe.ExpectMsg(("b", 2));
+            appProbe.ExpectMsg(("a", 1L));
+            appProbe.ExpectMsg(("b", 2L));
             rwProbe.ExpectMsg("w");
 
             Watch(actor);
@@ -345,8 +346,8 @@ namespace Eventuate.Tests
             ProcessLoad(actor);
             logProbe.ExpectMsg(new Replay(actor, instanceId, 1, 2));
             logProbe.Sender.Tell(new ReplaySuccess(new []{Event("a", 1), Event("b", 2)}, 2L, instanceId));
-            appProbe.ExpectMsg(("a", 1));
-            appProbe.ExpectMsg(("b", 2));
+            appProbe.ExpectMsg(("a", 1L));
+            appProbe.ExpectMsg(("b", 2L));
             rwProbe.ExpectMsg("w");
             
             Watch(actor);
@@ -360,7 +361,7 @@ namespace Eventuate.Tests
             var actor = ProcessRecover(UnrecoveredEventsourcedWriter());
             actor.Tell(new Written(Event("a", 1)));    // trigger write
             actor.Tell("cmd");
-            appProbe.ExpectMsg(("a", 1));
+            appProbe.ExpectMsg(("a", 1L));
             appProbe.ExpectMsg("cmd");
             ProcessWrite(Try.Success("ws"));
         }
@@ -372,8 +373,8 @@ namespace Eventuate.Tests
             actor.Tell(new Written(Event("a", 1)));    // trigger write 1
             actor.Tell(new Written(Event("b", 2)));    // trigger write 2 (after write 1 completed)
             
-            appProbe.ExpectMsg(("a", 1));
-            appProbe.ExpectMsg(("b", 2));
+            appProbe.ExpectMsg(("a", 1L));
+            appProbe.ExpectMsg(("b", 2L));
             ProcessWrite(Try.Success("ws"));
             ProcessWrite(Try.Success("ws"));
         }
@@ -383,7 +384,7 @@ namespace Eventuate.Tests
         {
             var actor = ProcessRecover(UnrecoveredEventsourcedWriter());
             actor.Tell(new Written(Event("a", 1)));    // trigger write
-            appProbe.ExpectMsg(("a", 1));
+            appProbe.ExpectMsg(("a", 1L));
             rwProbe.ExpectMsg("w");
 
             Watch(actor);

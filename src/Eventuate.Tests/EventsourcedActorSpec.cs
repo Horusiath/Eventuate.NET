@@ -48,7 +48,7 @@ namespace Eventuate.Tests
             }
         }
 
-        internal readonly struct DeliverRequested
+        internal readonly struct DeliverRequested : IEquatable<DeliverRequested>
         {
             public object Payload { get; }
 
@@ -56,16 +56,53 @@ namespace Eventuate.Tests
             {
                 Payload = payload;
             }
+
+            public bool Equals(DeliverRequested other) => Equals(Payload, other.Payload);
+
+            public override bool Equals(object obj) => obj is DeliverRequested other && Equals(other);
+
+            public override int GetHashCode() => (Payload != null ? Payload.GetHashCode() : 0);
         }
 
-        internal readonly struct State
+        internal readonly struct State : IEquatable<State>
         {
             public ImmutableArray<string> Value { get; }
 
+            public State(params string[] values)
+            {
+                Value = values.ToImmutableArray();
+            }
+            
             public State(ImmutableArray<string> value)
             {
                 Value = value;
             }
+
+            public bool Equals(State other)
+            {
+                if (Value.Length != other.Value.Length) return false;
+                for (int i = 0; i < Value.Length; i++)
+                {
+                    if (Value[i] != other.Value[i]) return false;
+                }
+
+                return true;
+            }
+
+            public override bool Equals(object obj) => obj is State other && Equals(other);
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    var hash = 0;
+                    foreach (var item in Value)
+                        hash = (397 * hash) ^ item.GetHashCode();
+                    return hash;
+                }
+            }
+
+            public override string ToString() => $"State({string.Join(", ", this.Value)})";
         }
 
         internal sealed class TestEventsourcedActor : EventsourcedActor
@@ -206,7 +243,7 @@ namespace Eventuate.Tests
         {
             private readonly IActorRef cmdProbe;
             private readonly IActorRef evtProbe;
-            private ImmutableArray<string> state;
+            private ImmutableArray<string> state = ImmutableArray<string>.Empty;
 
             public TestSnapshotActor(IActorRef eventLog, IActorRef cmdProbe, IActorRef evtProbe)
             {
@@ -226,6 +263,7 @@ namespace Eventuate.Tests
                     case "snap":
                         Save(new State(state), r =>
                         {
+                            Context.System.Log.Warning("WTF");
                             if (r.IsSuccess) cmdProbe.Tell(r.Value);
                             else cmdProbe.Tell(r.Exception);
                         });
@@ -251,7 +289,8 @@ namespace Eventuate.Tests
                 switch (message)
                 {
                     case string s:
-                        state = state.Add(s);
+                        this.state = this.state.Add(s);
+                        evtProbe.Tell((new State(this.state), LastVectorTimestamp, CurrentVersion, LastSequenceNr));
                         return true;
                     case DeliverRequested r:
                         Deliver(LastSequenceNr.ToString(), Message(r.Payload), cmdProbe.Path);
@@ -265,7 +304,7 @@ namespace Eventuate.Tests
                 if (message is State s)
                 {
                     this.state = s.Value;
-                    evtProbe.Tell(Message(this.state));
+                    evtProbe.Tell((new State(state), LastVectorTimestamp, CurrentVersion, LastSequenceNr));
                     return true;
                 }
                 else return false;
@@ -306,7 +345,7 @@ namespace Eventuate.Tests
         private IActorRef RecoveredEventsourcedActor(bool stateSync = true) =>
             ProcessRecover(UnrecoveredEventsourcedActor(stateSync));
 
-        private IActorRef RecoveredSnapshotActor() => ProcessRecover(UnrecoveredEventsourcedActor());
+        private IActorRef RecoveredSnapshotActor() => ProcessRecover(UnrecoveredSnapshotActor());
 
         private IActorRef RecoveredStashingActor(IActorRef probe, bool stateSync) =>
             ProcessRecover(Sys.ActorOf(Props.Create(() => new TestStashingActor(logProbe.Ref, probe, stateSync))));
@@ -574,6 +613,7 @@ namespace Eventuate.Tests
             actor.Tell(new Ping(2));
             actor.Tell("stash-off");
             actor.Tell(new Ping(3));
+            actor.Tell("unstash");
 
             probe.ExpectMsg(new Pong(1));
             probe.ExpectMsg(new Pong(3));
@@ -606,7 +646,7 @@ namespace Eventuate.Tests
 
             probe.ExpectMsg("a");
             probe.ExpectMsg(new Pong(1));
-            probe.ExpectMsg(new Pong(1));
+            probe.ExpectMsg(new Pong(2));
         }
 
         [Fact]
@@ -1058,7 +1098,7 @@ namespace Eventuate.Tests
             logProbe.Sender.Tell(new LoadSnapshotSuccess(snapshot, instanceId));
             logProbe.ExpectMsg(new Replay(actor, instanceId, 3));
             logProbe.Sender.Tell(new ReplaySuccess(Array.Empty<DurableEvent>(), 2, instanceId));
-            evtProbe.ExpectMsg((s, Timestamp(2), Timestamp(2, 4), 2L));
+            evtProbe.ExpectMsg((new State(s), Timestamp(2), Timestamp(2, 4), 2L));
         }
 
         [Fact]
@@ -1073,9 +1113,9 @@ namespace Eventuate.Tests
             logProbe.ExpectMsg(new Replay(actor, instanceId, 3));
             logProbe.Sender.Tell(new ReplaySuccess(new []{Event("c", 3), Event("d", 4)}, 4, instanceId));
             
-            evtProbe.ExpectMsg((s, Timestamp(2), Timestamp(2, 4), 2L));
-            evtProbe.ExpectMsg((s.Add("c"), Timestamp(3), Timestamp(3, 4), 3L));
-            evtProbe.ExpectMsg((s.Add("c").Add("d"), Timestamp(4), Timestamp(4, 4), 4L));
+            evtProbe.ExpectMsg((new State("a", "b"), Timestamp(2), Timestamp(2, 4), 2L));
+            evtProbe.ExpectMsg((new State("a", "b", "c"), Timestamp(3), Timestamp(3, 4), 3L));
+            evtProbe.ExpectMsg((new State("a", "b", "c", "d"), Timestamp(4), Timestamp(4, 4), 4L));
         }
 
         [Fact]
@@ -1092,7 +1132,7 @@ namespace Eventuate.Tests
             logProbe.Sender.Tell(new LoadSnapshotSuccess(snapshot, instanceId));
             logProbe.ExpectMsg(new Replay(actor, instanceId, 3));
             logProbe.Sender.Tell(new ReplaySuccess(Array.Empty<DurableEvent>(), 2, instanceId));
-            evtProbe.ExpectMsg((s, Timestamp(2), Timestamp(2, 4), 2L));
+            evtProbe.ExpectMsg((new State(s), Timestamp(2), Timestamp(2, 4), 2L));
             cmdProbe.ExpectMsg("x");
             cmdProbe.ExpectMsg("y");
         }
@@ -1101,26 +1141,26 @@ namespace Eventuate.Tests
         public void EventsourcedActor_must_recover_from_scratch_if_onSnapshot_doesnt_handle_loaded_snapshot()
         {
             var actor = UnrecoveredSnapshotActor();
-            var snapshot = new Snapshot("foo", "A", Event("b", 2), Timestamp(2, 4), 2);
+            var snapshot = new Snapshot("foo", EmitterIdA, Event("b", 2), Timestamp(2, 4), 2);
             
-            logProbe.ExpectMsg(new LoadSnapshot("A", instanceId));
+            logProbe.ExpectMsg(new LoadSnapshot(EmitterIdA, instanceId));
             logProbe.Sender.Tell(new LoadSnapshotSuccess(snapshot, instanceId));
             logProbe.ExpectMsg(new Replay(actor, instanceId, 1));
             logProbe.Sender.Tell(new ReplaySuccess(new []{Event("a", 1), Event("b", 2)}, 2, instanceId));
-            evtProbe.ExpectMsg((ImmutableArray.Create("a"), Timestamp(1), Timestamp(1), 1L));
-            evtProbe.ExpectMsg((ImmutableArray.Create("a", "b"), Timestamp(2), Timestamp(2), 2L));
+            evtProbe.ExpectMsg((new State("a"), Timestamp(1), Timestamp(1), 1L));
+            evtProbe.ExpectMsg((new State("a", "b"), Timestamp(2), Timestamp(2), 2L));
         }
 
         [Fact]
         public void EventsourcedActor_must_save_snapshot()
         {
-            var event1 = new DurableEvent("x", "B", null, ImmutableHashSet<string>.Empty, default, Timestamp(0, 1), "logB", "logA", 1);
-            var event2 = new DurableEvent("a", "A", null, ImmutableHashSet<string>.Empty, default, Timestamp(2, 1), "logA", "logA", 2);
-            var event3 = new DurableEvent("b", "A", null, ImmutableHashSet<string>.Empty, default, Timestamp(3, 1), "logA", "logA", 3);
+            var event1 = new DurableEvent("x", EmitterIdB, null, ImmutableHashSet<string>.Empty, default, Timestamp(0, 1), LogIdB, LogIdA, 1);
+            var event2 = new DurableEvent("a", EmitterIdA, null, ImmutableHashSet<string>.Empty, default, Timestamp(2, 1), LogIdA, LogIdA, 2);
+            var event3 = new DurableEvent("b", EmitterIdA, null, ImmutableHashSet<string>.Empty, default, Timestamp(3, 1), LogIdA, LogIdA, 3);
 
             var actor = RecoveredSnapshotActor();
             actor.Tell(new Written(event1));
-            evtProbe.ExpectMsg((ImmutableArray.Create("x"), Timestamp(0, 1), Timestamp(0, 1), 1L));
+            evtProbe.ExpectMsg((new State("x"), Timestamp(0, 1), Timestamp(0, 1), 1L));
             actor.Tell(new Cmd("a"));
             actor.Tell(new Cmd("b"));
 
@@ -1130,10 +1170,10 @@ namespace Eventuate.Tests
             var write2 = logProbe.ExpectMsg<Write>();
             logProbe.Sender.Tell(new WriteSuccess(new []{event3}, write2.CorrelationId, instanceId));
 
-            evtProbe.ExpectMsg((ImmutableArray.Create("x", "a"), Timestamp(2, 1), Timestamp(2, 1), 2L));
-            evtProbe.ExpectMsg((ImmutableArray.Create("x", "a", "b"), Timestamp(3, 1), Timestamp(3, 1), 3L));
+            evtProbe.ExpectMsg((new State("x", "a"), Timestamp(2, 1), Timestamp(2, 1), 2L));
+            evtProbe.ExpectMsg((new State("x", "a", "b"), Timestamp(3, 1), Timestamp(3, 1), 3L));
             
-            actor.Tell("snap");
+            actor.Tell("snap", ActorRefs.NoSender);
             
             var snapshot = new Snapshot(new State(ImmutableArray.Create("x", "a", "b")), "A", event3, Timestamp(3,1), 3);
             logProbe.ExpectMsg(new SaveSnapshot(snapshot, Sys.DeadLetters, instanceId));
@@ -1157,26 +1197,29 @@ namespace Eventuate.Tests
             logProbe.Sender.Tell(new WriteSuccess(new []{Event("b", 2)}, write2.CorrelationId, instanceId));
             
             var write3 = logProbe.ExpectMsg<Write>();
-            logProbe.Sender.Tell(new WriteSuccess(new []{Event("x", 3)}, write3.CorrelationId, instanceId));
+            logProbe.Sender.Tell(new WriteSuccess(new []{Event(new DeliverRequested("x"), 3)}, write3.CorrelationId, instanceId));
 
             var write4 = logProbe.ExpectMsg<Write>();
-            logProbe.Sender.Tell(new WriteSuccess(new []{Event("y", 4)}, write4.CorrelationId, instanceId));
+            logProbe.Sender.Tell(new WriteSuccess(new []{Event(new DeliverRequested("y"), 4)}, write4.CorrelationId, instanceId));
 
 
-            evtProbe.ExpectMsg((ImmutableArray.Create("a"), Timestamp(1), Timestamp(1), 1));
-            evtProbe.ExpectMsg((ImmutableArray.Create("a", "b"), Timestamp(2), Timestamp(2), 2));
-            cmdProbe.ExpectMsg(("x", Timestamp(3), Timestamp(3), 3));
-            cmdProbe.ExpectMsg(("y", Timestamp(4), Timestamp(4), 4));
-            actor.Tell("snap");
+            evtProbe.ExpectMsg((new State("a"), Timestamp(1), Timestamp(1), 1L));
+            evtProbe.ExpectMsg((new State("a", "b"), Timestamp(2), Timestamp(2), 2L));
+            cmdProbe.ExpectMsg(((object)"x", Timestamp(3), Timestamp(3), 3L));
+            cmdProbe.ExpectMsg(((object)"y", Timestamp(4), Timestamp(4), 4L));
+            actor.Tell("snap", ActorRefs.NoSender);
 
             var unconfirmed = ImmutableHashSet<DeliveryAttempt>.Empty
-                .Add(new DeliveryAttempt("3", ("x", Timestamp(3), Timestamp(3), 3), cmdProbe.Ref.Path))
-                .Add(new DeliveryAttempt("4", ("y", Timestamp(4), Timestamp(4), 4), cmdProbe.Ref.Path));
-            var snapshot = new Snapshot(new State(ImmutableArray.Create("a", "b")), "A",
-                Event(new DeliverRequested("y"), 4), Timestamp(4), 4, 
+                .Add(new DeliveryAttempt("3", ((object)"x", Timestamp(3), Timestamp(3), 3L), cmdProbe.Ref.Path))
+                .Add(new DeliveryAttempt("4", ((object)"y", Timestamp(4), Timestamp(4), 4L), cmdProbe.Ref.Path));
+            var snapshot = new Snapshot(new State(ImmutableArray.Create("a", "b")), EmitterIdA,
+                Event(new DeliverRequested("y"), 4), Timestamp(4), 4L, 
                 deliveryAttempts: unconfirmed);
             
-            logProbe.ExpectMsg(new SaveSnapshot(snapshot, Sys.DeadLetters, instanceId));
+            var actual = logProbe.ExpectMsg<SaveSnapshot>();
+            actual.InstanceId.Should().Be(instanceId);
+            actual.Initiator.Should().Be(Sys.DeadLetters);
+            actual.Snapshot.Should().Be(snapshot);
             logProbe.Sender.Tell(new SaveSnapshotSuccess(snapshot.Metadata, instanceId));
             cmdProbe.ExpectMsg(snapshot.Metadata);
         }
@@ -1187,7 +1230,7 @@ namespace Eventuate.Tests
             var actor = RecoveredSnapshotActor();
             actor.Tell("snap");
             actor.Tell("snap");
-            cmdProbe.ExpectMsg<InvalidOperationException>();
+            cmdProbe.ExpectMsg<IllegalActorStateException>();
         }
     }
 }

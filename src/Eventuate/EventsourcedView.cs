@@ -333,7 +333,11 @@ namespace Eventuate
 
         internal virtual Snapshot SnapshotCaptured(Snapshot snapshot) => snapshot;
 
-        internal virtual void SnapshotLoaded(Snapshot snapshot) => lastHandledEvent = snapshot.LastEvent;
+        internal virtual bool SnapshotLoaded(Snapshot snapshot, Receive behavior)
+        {
+            lastHandledEvent = snapshot.LastEvent;
+            return behavior(snapshot.Payload);
+        }
 
         internal virtual void UnhandledMessage(object message)
         {
@@ -403,8 +407,7 @@ namespace Eventuate
                         else
                         {
                             var behavior = snapshotContext.Value.Current;
-                            SnapshotLoaded(snapshot);
-                            if (behavior(snapshot.Payload))
+                            if (SnapshotLoaded(snapshot, behavior))
                             {
                                 Replay(snapshot.Metadata.SequenceNr + 1, subscribe: true);
                             }

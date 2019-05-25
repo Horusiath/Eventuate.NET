@@ -240,10 +240,14 @@ namespace Eventuate
     /// <seealso cref="EventsourcedProcessor"/>
     public abstract class StatefulProcessor : EventsourcedProcessor, IEventsourcedVersion
     {
-        internal override void SnapshotLoaded(Snapshot snapshot)
+        internal override bool SnapshotLoaded(Snapshot snapshot, Receive behavior)
         {
-            base.SnapshotLoaded(snapshot);
+            var prev = this.CurrentVersion;
             this.CurrentVersion = snapshot.CurrentTime;
+            var handled = base.SnapshotLoaded(snapshot, behavior);
+            if (!handled)
+                this.CurrentVersion = prev;
+            return handled;
         }
 
         internal override bool ReceiveEventInternal(DurableEvent e, Receive behavior)

@@ -150,7 +150,7 @@ namespace Eventuate
         /// 
         /// This map keeps the requests in the order they were submitted.
         /// </summary>
-        private readonly SortedDictionary<long, PersistOnEventRequest> requestsBySequenceNr = new SortedDictionary<long, PersistOnEventRequest>();
+        private ImmutableSortedDictionary<long, PersistOnEventRequest> requestsBySequenceNr = ImmutableSortedDictionary<long, PersistOnEventRequest>.Empty;
 
         /// <summary>
         /// <see cref="PersistOnEventRequest"/> by <see cref="EventId"/> of the event that caused the persist on event request.
@@ -159,7 +159,7 @@ namespace Eventuate
         /// that caused the request changed its local sequence number due to a disaster recovery.
         /// </summary>
         /// <seealso cref="https://github.com/RBMHTechnology/eventuate/issues/385"/>
-        private readonly Dictionary<EventId, PersistOnEventRequest> requestsByEventId = new Dictionary<EventId, PersistOnEventRequest>();
+        private ImmutableDictionary<EventId, PersistOnEventRequest> requestsByEventId = ImmutableDictionary<EventId, PersistOnEventRequest>.Empty;
 
         internal IEnumerable<long> UnconfirmedRequests => requestsBySequenceNr.Keys;
 
@@ -200,16 +200,33 @@ namespace Eventuate
             return acc;
         }
 
-        internal override void SnapshotLoaded(Snapshot snapshot)
+        internal override bool SnapshotLoaded(Snapshot snapshot, Receive behavior)
         {
-            base.SnapshotLoaded(snapshot);
-            foreach (var pr in snapshot.PersistOnEventRequests)
+            var previousRequestsBySequenceNr = this.requestsBySequenceNr;
+            var previousRequestsByEventId = this.requestsByEventId;
+            if (!snapshot.PersistOnEventRequests.IsEmpty)
             {
-                var requestWithUpdatedInstanceId = new PersistOnEventRequest(pr.PersistOnEventSequenceNr, pr.PersistOnEventId, pr.Invocations, InstanceId);
-                requestsBySequenceNr[pr.PersistOnEventSequenceNr] = requestWithUpdatedInstanceId;
-                if (pr.PersistOnEventId.HasValue)
-                    requestsByEventId[pr.PersistOnEventId.Value] = requestWithUpdatedInstanceId;
+                var builderRequestsBySequenceNr = this.requestsBySequenceNr.ToBuilder();
+                var builderRequestsByEventId = this.requestsByEventId.ToBuilder();
+                foreach (var pr in snapshot.PersistOnEventRequests)
+                {
+                    var requestWithUpdatedInstanceId = new PersistOnEventRequest(pr.PersistOnEventSequenceNr, pr.PersistOnEventId, pr.Invocations, InstanceId);
+                    builderRequestsBySequenceNr[pr.PersistOnEventSequenceNr] = requestWithUpdatedInstanceId;
+                    if (pr.PersistOnEventId.HasValue)
+                        builderRequestsByEventId[pr.PersistOnEventId.Value] = requestWithUpdatedInstanceId;
+                }
+
+                this.requestsByEventId = builderRequestsByEventId.ToImmutable();
+                this.requestsBySequenceNr = builderRequestsBySequenceNr.ToImmutable();
             }
+            var handled = base.SnapshotLoaded(snapshot, behavior);
+            if (!handled)
+            {
+                this.requestsByEventId = previousRequestsByEventId;
+                this.requestsBySequenceNr = previousRequestsBySequenceNr;
+            }
+
+            return handled;
         }
 
         internal override void Recovered()
@@ -220,9 +237,9 @@ namespace Eventuate
 
         private void DeliverRequest(PersistOnEventRequest request)
         {
-            this.requestsBySequenceNr[request.PersistOnEventSequenceNr] = request;
+            this.requestsBySequenceNr = this.requestsBySequenceNr.SetItem(request.PersistOnEventSequenceNr, request);
             if (request.PersistOnEventId.HasValue)
-                this.requestsByEventId[request.PersistOnEventId.Value] = request;
+                this.requestsByEventId = this.requestsByEventId.SetItem(request.PersistOnEventId.Value, request);
 
             if (!IsRecovering)
                 Self.Tell(request);
@@ -231,9 +248,9 @@ namespace Eventuate
         private void ConfirmRequest(PersistOnEventRequest request)
         {
             if (request.PersistOnEventId.HasValue)
-                this.requestsByEventId.Remove(request.PersistOnEventId.Value);
+                this.requestsByEventId = this.requestsByEventId.Remove(request.PersistOnEventId.Value);
 
-            this.requestsBySequenceNr.Remove(request.PersistOnEventSequenceNr);
+            this.requestsBySequenceNr = this.requestsBySequenceNr.Remove(request.PersistOnEventSequenceNr);
         }
 
         private bool TryFindPersistOnEventRequest(DurableEvent e, out PersistOnEventRequest request)
