@@ -482,7 +482,7 @@ namespace Eventuate
                     Replay(rr.ReplayProgress);
                     return true;
 
-                case Terminated t when t.ActorRef == EventLog:
+                case Terminated t when Equals(t.ActorRef, EventLog):
                     Context.Stop(Self);
                     return true;
 

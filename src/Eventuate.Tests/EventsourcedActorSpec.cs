@@ -36,6 +36,8 @@ namespace Eventuate.Tests
                 Payload = payload;
                 Num = num;
             }
+
+            public override string ToString() => $"Cmd(payload: {Payload}, num: {Num})";
         }
 
         internal readonly struct Deliver
@@ -197,6 +199,7 @@ namespace Eventuate.Tests
 
             protected override bool OnCommand(object message)
             {
+                Logger.Debug("RECEIVED '{0}' while stashing={1}", message, stashing);
                 switch (message)
                 {
                     case "boom": throw TestException.Instance;
@@ -261,9 +264,9 @@ namespace Eventuate.Tests
                 {
                     case "boom": throw TestException.Instance;
                     case "snap":
+                    case "snap2":
                         Save(new State(state), r =>
                         {
-                            Context.System.Log.Warning("WTF");
                             if (r.IsSuccess) cmdProbe.Tell(r.Value);
                             else cmdProbe.Tell(r.Exception);
                         });
@@ -1229,7 +1232,7 @@ namespace Eventuate.Tests
         {
             var actor = RecoveredSnapshotActor();
             actor.Tell("snap");
-            actor.Tell("snap");
+            actor.Tell("snap2");
             cmdProbe.ExpectMsg<IllegalActorStateException>();
         }
     }

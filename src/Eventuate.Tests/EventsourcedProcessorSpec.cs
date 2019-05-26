@@ -230,7 +230,11 @@ namespace Eventuate.Tests
         private readonly TestProbe trgProbe;
         private readonly TestProbe appProbe;
 
-        public EventsourcedProcessorSpec(ITestOutputHelper output) : base(config: "eventuate.log.write-batch-size = 10",
+        private const string Config = @"
+            akka.loglevel = DEBUG
+            eventuate.log.write-batch-size = 10";
+        
+        public EventsourcedProcessorSpec(ITestOutputHelper output) : base(config: Config,
             output: output)
         {
             this.instanceId = EventsourcedView.InstanceIdCounter.Current;
@@ -303,10 +307,10 @@ namespace Eventuate.Tests
             if (success)
                 appProbe.ExpectMsg(progress);
             else
-                appProbe.ExpectMsg(TestException.Instance);
+                appProbe.ExpectMsg<AggregateException>().InnerException.Should().Be(TestException.Instance);
         }
 
-        private void ProcessResult(object result) => trgProbe.Sender.Tell(new Status.Success(result));
+        private void ProcessResult(object result) => trgProbe.Sender.Tell(result);
 
         [Fact]
         public void StatefulProcessor_must_recover()

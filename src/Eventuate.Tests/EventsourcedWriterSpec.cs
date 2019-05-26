@@ -16,6 +16,7 @@ using Akka.Configuration;
 using Akka.TestKit;
 using Akka.TestKit.Xunit2;
 using Eventuate.EventsourcingProtocol;
+using FluentAssertions;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -61,8 +62,28 @@ namespace Eventuate.Tests
                 return false;
             }
 
-            public override Task<string> Read() => rwProbe.Ask<string>("r", Timeout);
-            public override Task<string> Write() => rwProbe.Ask<string>("w", Timeout);
+            public override async Task<string> Read()
+            {
+                switch (await rwProbe.Ask("r", Timeout))
+                {
+                    case string s: return s;
+                    case Status.Success success: return (string)success.Status;
+                    case Status.Failure failure: throw failure.Cause;
+                    case var unknown: throw new Exception($"Unrecognized request {unknown}");
+                }
+            }
+
+            public override async Task<string> Write()
+            {
+                switch (await rwProbe.Ask("w", Timeout))
+                {
+                    case string s: return s;
+                    case Status.Success success: return (string)success.Status;
+                    case Status.Failure failure: throw failure.Cause;
+                    case var unknown: throw new Exception($"Unrecognized request {unknown}");
+                }
+            }
+
             public override long? ReadSuccess(string result)
             {
                 appProbe.Tell(result);
@@ -111,7 +132,7 @@ namespace Eventuate.Tests
             Sys.ActorOf(Props.Create(() => new TestEventsourcedWriter(logProbe, appProbe, rwProbe, readSuccessResult)));
 
         private IActorRef RecoveredEventsourcedWriter(long? readSuccessResult = null) =>
-            ProcessRecover(UnrecoveredEventsourcedWriter(readSuccessResult));
+            ProcessRecover(UnrecoveredEventsourcedWriter(readSuccessResult), readSuccessResult);
         
         private IActorRef ProcessRecover(IActorRef actor, long? readSuccessResult = null)
         {
@@ -158,14 +179,14 @@ namespace Eventuate.Tests
         {
             if (result.TryGetValue(out var s))
             {
-                rwProbe.Sender.Tell(s);
+                rwProbe.Sender.Tell(new Status.Success(s));
                 appProbe.ExpectMsg(s);
             }
             else
             {
                 var err = result.Exception;
                 rwProbe.Sender.Tell(new Status.Failure(err));
-                appProbe.ExpectMsg(err);
+                appProbe.ExpectMsg<AggregateException>().InnerException.Should().Be(err);
             }
         }
         
@@ -206,7 +227,7 @@ namespace Eventuate.Tests
             ProcessLoad(actor);
             logProbe.ExpectMsg(new Replay(actor, instanceId, 1L, 2));
             logProbe.Sender.Tell(new ReplaySuccess(new []{Event("a", 1)}, 1L, instanceId));
-            appProbe.ExpectMsg(("a", 1));
+            appProbe.ExpectMsg(("a", 1L));
             ProcessWrite(Try.Failure<string>(TestException.Instance));
             ProcessRead(Try.Success("rs"));
             
@@ -214,7 +235,7 @@ namespace Eventuate.Tests
             ProcessLoad(actor, next);
             logProbe.ExpectMsg(new Replay(actor, next, 1L, 2));
             logProbe.Sender.Tell(new ReplaySuccess(new []{Event("a", 1)}, 1L, next));
-            appProbe.ExpectMsg(("a", 1));
+            appProbe.ExpectMsg(("a", 1L));
             ProcessWrite(Try.Success("ws"));
         }
 
@@ -226,12 +247,12 @@ namespace Eventuate.Tests
             ProcessLoad(actor);
             logProbe.ExpectMsg(new Replay(actor, instanceId, 1L, 2));
             logProbe.Sender.Tell(new ReplaySuccess(new []{Event("a", 1), Event("b", 2)}, 2L, instanceId));
-            appProbe.ExpectMsg(("a", 1));
-            appProbe.ExpectMsg(("b", 2));
+            appProbe.ExpectMsg(("a", 1L));
+            appProbe.ExpectMsg(("b", 2L));
             ProcessWrite(Try.Success("ws"));
-            logProbe.ExpectMsg(new Replay(actor, instanceId, 3L, 2));
+            logProbe.ExpectMsg(new Replay(null, instanceId, 3L, 2));
             logProbe.Sender.Tell(new ReplaySuccess(new[] {Event("c", 3)}, 3L, instanceId));
-            appProbe.ExpectMsg(("c", 3));
+            appProbe.ExpectMsg(("c", 3L));
             ProcessWrite(Try.Success("ws"));
         }
 
@@ -277,7 +298,7 @@ namespace Eventuate.Tests
             logProbe.Sender.Tell(new ReplayFailure(TestException.Instance, 1L, instanceId));
             
 
-            logProbe.ExpectMsg(new Replay(actor, instanceId, 1, 2));
+            logProbe.ExpectMsg(new Replay(null, instanceId, 1, 2));
             logProbe.Sender.Tell(new ReplayFailure(TestException.Instance, 1L, instanceId));
 
             ExpectTerminated(actor);
@@ -343,7 +364,6 @@ namespace Eventuate.Tests
         {
             var actor = UnrecoveredEventsourcedWriter(1);
             ProcessRead(Try.Success("rs"));
-            ProcessLoad(actor);
             logProbe.ExpectMsg(new Replay(actor, instanceId, 1, 2));
             logProbe.Sender.Tell(new ReplaySuccess(new []{Event("a", 1), Event("b", 2)}, 2L, instanceId));
             appProbe.ExpectMsg(("a", 1L));
