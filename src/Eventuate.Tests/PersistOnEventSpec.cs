@@ -95,7 +95,7 @@ namespace Eventuate.Tests
                     // duplicate in the mailbox
                     throw TestException.Instance;
                 }
-                else deliverProbe.Tell(UnconfirmedRequests);
+                else deliverProbe.Tell(UnconfirmedRequests.ToImmutableHashSet());
             }
         }
 
@@ -122,7 +122,7 @@ namespace Eventuate.Tests
         private readonly TestProbe persistProbe;
         private readonly TestProbe deliverProbe;
         
-        public PersistOnEventSpec(ITestOutputHelper output) : base(output: output)
+        public PersistOnEventSpec(ITestOutputHelper output) : base(config:@"akka.loglevel=DEBUG", output: output)
         {
             this.instanceId = EventsourcedView.InstanceIdCounter.Current;
             this.logProbe = CreateTestProbe();
@@ -381,7 +381,7 @@ namespace Eventuate.Tests
             actor.Tell(new Written(Event("boom", 1L)));
 
             var eventA = Event("a", 1L);
-            ProcessRecover(actor, instanceId, eventA);
+            ProcessRecover(actor, instanceId + 1, eventA);
             
             var write = logProbe.ExpectMsg<Write>();
             var events = write.Events.ToArray();

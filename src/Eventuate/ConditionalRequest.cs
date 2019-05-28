@@ -147,12 +147,16 @@ namespace Eventuate
             //TODO: cleanup requests older than threshold
             public RequestBuffer(IActorRef owner)
             {
-                Receive<Send>(send => Sender.Tell(new Sent(send.OlderThan, Send(send.OlderThan))));
-                Receive<Request>(cc => this.requests.Add(cc));
+                Receive<Send>(send =>
+                {
+                    var num = ToSend(send.OlderThan);
+                    Sender.Tell(new Sent(send.OlderThan, num));
+                });
+                Receive<Request>(cc => this.requests = this.requests.Add(cc));
                 this.owner = owner;
             }
 
-            private int Send(VectorTime olderThan)
+            private int ToSend(VectorTime olderThan)
             {
                 var i = 0;
                 var builder = ImmutableArray.CreateBuilder<Request>(this.requests.Length);

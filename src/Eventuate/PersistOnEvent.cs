@@ -237,9 +237,9 @@ namespace Eventuate
 
         private void DeliverRequest(PersistOnEventRequest request)
         {
-            this.requestsBySequenceNr = this.requestsBySequenceNr.SetItem(request.PersistOnEventSequenceNr, request);
+            this.requestsBySequenceNr = this.requestsBySequenceNr.Add(request.PersistOnEventSequenceNr, request);
             if (request.PersistOnEventId.HasValue)
-                this.requestsByEventId = this.requestsByEventId.SetItem(request.PersistOnEventId.Value, request);
+                this.requestsByEventId = this.requestsByEventId.Add(request.PersistOnEventId.Value, request);
 
             if (!IsRecovering)
                 Self.Tell(request);

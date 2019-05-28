@@ -259,9 +259,9 @@ namespace Eventuate
         internal virtual void ReceiveEvent(DurableEvent e)
         {
             var behavior = eventContext.Value.Current;
-            var previous = lastHandledEvent;
+            var previous = this.lastHandledEvent;
 
-            lastHandledEvent = e;
+            this.lastHandledEvent = e;
             isEventHandling = true;
             if (ReceiveEventInternal(e, behavior))
             {
@@ -269,7 +269,7 @@ namespace Eventuate
             }
             else
             {
-                lastHandledEvent = previous;
+                this.lastHandledEvent = previous;
             }
             isEventHandling = false;
 

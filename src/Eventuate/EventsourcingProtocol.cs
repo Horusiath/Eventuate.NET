@@ -638,6 +638,8 @@ namespace Eventuate.EventsourcingProtocol
                 return ((EmitterId != null ? EmitterId.GetHashCode() : 0) * 397) ^ InstanceId;
             }
         }
+
+        public override string ToString() => $"LoadSnapshot(emitterId: {EmitterId}, instanceId: {InstanceId})";
     }
 
     /// <summary>
