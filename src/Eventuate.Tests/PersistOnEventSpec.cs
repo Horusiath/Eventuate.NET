@@ -111,11 +111,17 @@ namespace Eventuate.Tests
             return new VectorTime(("A", a), ("B", b));
         }
 
-        private static DurableEvent Event(object payload, long sequenceNr, DurableEvent persistOnEventEvent = null, string emitterId = null) =>
+        private static DurableEvent Event(object payload, long sequenceNr, DurableEvent persistOnEvent = null, string emitterId = null) =>
             new DurableEvent(payload, emitterId ?? "A", null, 
                 ImmutableHashSet<string>.Empty, default, 
                 Timestamp(sequenceNr), "A", "A", sequenceNr, null, 
-                persistOnEventEvent?.LocalSequenceNr, persistOnEventEvent?.Id);
+                persistOnEvent?.LocalSequenceNr, persistOnEvent?.Id);
+        
+        private static DurableEvent Event(object payload, long sequenceNr, DurableEvent persistOnEvent, EventId? persistOnEventId, string emitterId = null) =>
+            new DurableEvent(payload, emitterId ?? "A", null, 
+                ImmutableHashSet<string>.Empty, default, 
+                Timestamp(sequenceNr), "A", "A", sequenceNr, null, 
+                persistOnEvent?.LocalSequenceNr, persistOnEventId);
 
         private readonly int instanceId;
         private readonly TestProbe logProbe;
@@ -352,8 +358,8 @@ namespace Eventuate.Tests
 
             var persistedOnA = new[]
             {
-                Event(events[0].Payload, 2L),
-                Event(events[0].Payload, 2L, eventA)
+                Event(events[0].Payload, 2L, eventA, persistOnEventId: null),
+                Event(events[1].Payload, 3L, eventA)
             };
             logProbe.Sender.Tell(new WriteSuccess(persistedOnA, write.CorrelationId, instanceId));
             
