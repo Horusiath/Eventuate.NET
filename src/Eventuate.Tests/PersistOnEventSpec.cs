@@ -114,7 +114,7 @@ namespace Eventuate.Tests
         private static DurableEvent Event(object payload, long sequenceNr, DurableEvent persistOnEventEvent = null, string emitterId = null) =>
             new DurableEvent(payload, emitterId ?? "A", null, 
                 ImmutableHashSet<string>.Empty, default, 
-                Timestamp(sequenceNr), "logA", "logA", sequenceNr, null, 
+                Timestamp(sequenceNr), "A", "A", sequenceNr, null, 
                 persistOnEventEvent?.LocalSequenceNr, persistOnEventEvent?.Id);
 
         private readonly int instanceId;
@@ -398,14 +398,15 @@ namespace Eventuate.Tests
         public void PersistOnEventActor_must_save_snapshot_with_PersistOnEvent_requests()
         {
             var actor = RecoveredTestActor(stateSync: false);
-            actor.Tell(new Written(Event("x", 1L)));
+            var e = Event("x", 1L);
+            actor.Tell(new Written(e));
 
-            var write = logProbe.ExpectMsg<Write>();
+            logProbe.ExpectMsg<Write>();
             
             actor.Tell("snap");
 
             var save = logProbe.ExpectMsg<SaveSnapshot>();
-            var expected = new PersistOnEventRequest(1L, new EventId("logA", 1L), ImmutableArray.Create(
+            var expected = new PersistOnEventRequest(1L, new EventId("A", 1L), ImmutableArray.Create(
                 new PersistOnEventInvocation("x-1", ImmutableHashSet<string>.Empty.Add("14")),
                 new PersistOnEventInvocation("x-2", ImmutableHashSet<string>.Empty.Add("15"))), 
                 instanceId);

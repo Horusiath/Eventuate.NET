@@ -45,5 +45,7 @@ namespace Eventuate
             hashCode = hashCode * 23 + SequenceNr.GetHashCode();
             return hashCode;
         }
+
+        public override string ToString() => $"EventId({ProcessId}, {SequenceNr.ToString()})";
     }
 }

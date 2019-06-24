@@ -143,7 +143,7 @@ namespace Eventuate
                 throw new PersistOnEventException($"Failed to persist [{nameof(PersistOnEventRequest)}]", attempt.Exception);
         };
 
-        private readonly List<PersistOnEventInvocation> invocations = new List<PersistOnEventInvocation>();
+        private ImmutableArray<PersistOnEventInvocation> invocations = ImmutableArray<PersistOnEventInvocation>.Empty;
 
         /// <summary>
         /// <see cref="PersistOnEventRequest"/> by sequence number of the event that caused the persist on event request.
@@ -172,7 +172,7 @@ namespace Eventuate
         /// </summary>
         public void PersistOnEvent<T>(T domainEvent, ImmutableHashSet<string> customDestinationAggregateIds = null)
         {
-            invocations.Add(new PersistOnEventInvocation(domainEvent, customDestinationAggregateIds ?? ImmutableHashSet<string>.Empty));
+            invocations = invocations.Add(new PersistOnEventInvocation(domainEvent, customDestinationAggregateIds ?? ImmutableHashSet<string>.Empty));
         }
 
         internal override void ReceiveEvent(DurableEvent e)
@@ -183,10 +183,10 @@ namespace Eventuate
                 ConfirmRequest(request);
             }             
             
-            if (invocations.Count != 0)
+            if (!invocations.IsEmpty)
             {
-                DeliverRequest(new PersistOnEventRequest(LastSequenceNr, LastHandledEvent.Id, invocations.ToImmutableArray(), InstanceId));
-                invocations.Clear();
+                DeliverRequest(new PersistOnEventRequest(LastSequenceNr, LastHandledEvent.Id, invocations, InstanceId));
+                invocations = ImmutableArray<PersistOnEventInvocation>.Empty;
             }
         }
 

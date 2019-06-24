@@ -19,7 +19,7 @@ namespace Eventuate
     /// <summary>
     /// A versioned value.
     /// </summary>
-    public readonly struct Versioned<T>
+    public readonly struct Versioned<T> : IEquatable<Versioned<T>>, IComparable<Versioned<T>>
     {
         public Versioned(T value, VectorTime vectorTimestamp, DateTime? systemTimestamp = null, string creator = null)
         {
@@ -48,6 +48,52 @@ namespace Eventuate
         /// Creator of the event that caused this version.
         /// </summary>
         public string Creator { get; }
+
+        public override string ToString()
+        {
+            var sb = new StringBuilder("Versioned(value: ").Append(Equals(Value, null) ? "<null>" : Value.ToString())
+                .Append(", vectorTimestamp: ").Append(VectorTimestamp.ToString());
+
+            if (SystemTimestamp != DateTime.MinValue)
+                sb.Append(", systemTimestamp: ").Append(SystemTimestamp.ToString("O"));
+
+            if (!string.IsNullOrEmpty(Creator))
+                sb.Append(", creator: ").Append(Creator);
+
+            sb.Append(')');
+
+            return sb.ToString();
+        }
+
+        public bool Equals(Versioned<T> other) =>
+            SystemTimestamp.Equals(other.SystemTimestamp) 
+            && string.Equals(Creator, other.Creator) 
+            && VectorTimestamp == other.VectorTimestamp 
+            && EqualityComparer<T>.Default.Equals(Value, other.Value);
+
+        public override bool Equals(object obj) => obj is Versioned<T> other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hashCode = EqualityComparer<T>.Default.GetHashCode(Value);
+                hashCode = (hashCode * 397) ^ (VectorTimestamp != null ? VectorTimestamp.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ SystemTimestamp.GetHashCode();
+                hashCode = (hashCode * 397) ^ (Creator != null ? Creator.GetHashCode() : 0);
+                return hashCode;
+            }
+        }
+
+        public int CompareTo(Versioned<T> other)
+        {
+            var cmp = this.VectorTimestamp.PartiallyCompareTo(other.VectorTimestamp);
+            if (!cmp.HasValue || cmp == 0)
+            {
+                return this.SystemTimestamp.CompareTo(other.SystemTimestamp);
+            }
+            else return cmp.Value;
+        }
     }
 
     /// <summary>
@@ -313,6 +359,29 @@ namespace Eventuate
             new ConcurrentVersionsTree<TValue, TUpdate>((Node)this.root.Clone(), this.Owner, projection);
 
         public object Clone() => new ConcurrentVersionsTree<TValue, TUpdate>((Node)this.root.Clone(), this.Owner, this.projection);
+
+        public override string ToString()
+        {
+            void WriteRecursive(Node node, StringBuilder builder, int nesting)
+            {
+                for (int i = 0; i < nesting; i++) builder.Append('\t');
+                builder.Append("- <");
+                if (node.rejected)
+                    builder.Append("rejected:");
+                builder.Append(node.Versioned.ToString()).Append('>');
+
+                nesting++;
+                foreach (var child in node.children)
+                {
+                    builder.AppendLine();
+                    WriteRecursive(child, builder, nesting);
+                }
+            }
+            
+            var sb = new StringBuilder();
+            WriteRecursive(this.root, sb, 0);
+            return sb.ToString();
+        }
     }
 
     public static class ConcurrentVersionsTree
