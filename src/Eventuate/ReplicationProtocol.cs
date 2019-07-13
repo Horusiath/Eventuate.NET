@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
+using Akka.Util.Internal;
 
 namespace Eventuate.ReplicationProtocol
 {
@@ -630,6 +631,8 @@ namespace Eventuate.ReplicationProtocol
                 return (ReplicationProgress.GetHashCode() * 397) ^ (CurrentVersionVector != null ? CurrentVersionVector.GetHashCode() : 0);
             }
         }
+
+        public override string ToString() => $"ReplicationMetadata(progress: {ReplicationProgress}, version: {CurrentVersionVector})";
     }
 
     /// <summary>
@@ -683,6 +686,31 @@ namespace Eventuate.ReplicationProtocol
                 hashCode = (hashCode * 397) ^ (ReplyTo != null ? ReplyTo.GetHashCode() : 0);
                 return hashCode;
             }
+        }
+
+        public override string ToString()
+        {
+            var sb = new StringBuilder("ReplicationWrite(continue: ")
+                .Append(ContinueReplication);
+            
+            if (ReplyTo != null)
+                sb.Append(", replyTo: ").Append(ReplyTo);
+
+            if (!Metadata.IsEmpty)
+            {
+                sb.Append(", metadata: {");
+                
+                foreach (var (key, meta) in Metadata)
+                {
+                    sb.Append(key).Append(": ").Append(meta.ToString());
+                }
+
+                sb.Append('}');
+            }
+
+            sb.Append(", events: [");
+            sb.AppendJoin(", ", Events);
+            return sb.Append("])").ToString();
         }
     }
 

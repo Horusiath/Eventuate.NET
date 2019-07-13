@@ -384,7 +384,7 @@ namespace Eventuate.Tests
             StatefulProcessor_must_exclude_events_from_write_with_sequenceNr_less_than_or_equal_to_storedSequenceNr()
         {
             var actor = UnrecoveredStatefulProcessor();
-            ProcessRead(0);
+            ProcessRead(3);
             ProcessLoad(actor);
             ProcessReplay(actor, 1,  instanceId);
             actor.Tell(new Written(eventA));
@@ -395,13 +395,13 @@ namespace Eventuate.Tests
         public void StatefulProcessor_must_include_events_to_write_with_sequenceNr_greater_than_storedSequenceNr()
         {
             var actor = UnrecoveredStatefulProcessor();
-            ProcessRead(0);
+            ProcessRead(2);
             ProcessLoad(actor);
             ProcessReplay(actor, 1,  instanceId);
             actor.Tell(new Written(eventA));
-            appProbe.ExpectMsg(2);
+            appProbe.ExpectMsg(2L);
             actor.Tell(new Written(eventB));
-            appProbe.ExpectMsg(2);
+            appProbe.ExpectMsg(2L);
             actor.Tell(new Written(eventC));
             ProcessWrite(3, true, eventC1, eventC2);
             actor.Tell("state");

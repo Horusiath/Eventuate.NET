@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Akka.Util.Internal;
 
 [assembly:InternalsVisibleTo("Eventuate.Tests")]
 
@@ -218,6 +219,49 @@ namespace Eventuate
                 }
                 return hashCode;
             }
+        }
+
+        public override string ToString()
+        {
+            var sb = new StringBuilder("DurableEvent(payload: ")
+                .Append(Payload);
+
+            if (!string.IsNullOrEmpty(EmitterId))
+                sb.Append(", emitterId: '").Append(EmitterId).Append("'");
+            
+            if (!string.IsNullOrEmpty(EmitterAggregateId))
+                sb.Append(", emitterAggregateId: '").Append(EmitterAggregateId).Append("'");
+            
+            if (!string.IsNullOrEmpty(ProcessId))
+                sb.Append(", processId: '").Append(ProcessId).Append("'");
+            
+            if (!string.IsNullOrEmpty(LocalLogId))
+                sb.Append(", logId: '").Append(LocalLogId).Append("'");
+            
+            if (!string.IsNullOrEmpty(DeliveryId))
+                sb.Append(", deliveryId: '").Append(DeliveryId).Append("'");
+
+            sb.Append(", seqNr: ").Append(LocalSequenceNr);
+            
+            if (SystemTimestamp != default)
+                sb.Append(", sysTimestamp: ").Append(SystemTimestamp.ToString("O"));
+            
+            sb.Append(", vectorTimestamp: ").Append(VectorTimestamp);
+
+            if (PersistOnEventSequenceNr.HasValue)
+                sb.Append(", persistOnSeqNr: ").Append(PersistOnEventSequenceNr.Value);
+            
+            if (PersistOnEventId.HasValue)
+                sb.Append(", persistOnEventId: ").Append(PersistOnEventId.Value.ToString());
+
+            if (!CustomDestinationAggregateIds.IsEmpty)
+            {
+                sb.Append(", customDestinationAggregateIds: [");
+                sb.AppendJoin(", ", CustomDestinationAggregateIds);
+                sb.Append(']');
+            }
+
+            return sb.Append(")").ToString();
         }
     }
 
