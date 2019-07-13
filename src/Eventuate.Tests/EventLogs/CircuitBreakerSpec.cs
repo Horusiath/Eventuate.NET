@@ -106,7 +106,7 @@ namespace Eventuate.Tests.EventLogs
         }
         
         [Fact]
-        public async Task CircuitBreaker_must_reply_with_special_failure_message_on_Write_requests_if_open()
+        public void CircuitBreaker_must_reply_with_special_failure_message_on_Write_requests_if_open()
         {
             var events = new[] {new DurableEvent("a", "emitter")};
             breaker.Tell(ServiceEvent.Failed(LogId, 1, TestLogFailureException));
@@ -116,7 +116,7 @@ namespace Eventuate.Tests.EventLogs
         }
         
         [Fact]
-        public async Task CircuitBreaker_must_publish_ServiceFailed_once_on_event_stream_when_opened()
+        public void CircuitBreaker_must_publish_ServiceFailed_once_on_event_stream_when_opened()
         {
             Sys.EventStream.Subscribe(probe.Ref, typeof(ServiceEvent));
 
@@ -129,7 +129,7 @@ namespace Eventuate.Tests.EventLogs
         }
 
         [Fact]
-        public async Task CircuitBreaker_must_publish_ServiceNormal_once_on_event_stream_when_closed()
+        public void CircuitBreaker_must_publish_ServiceNormal_once_on_event_stream_when_closed()
         {
             Sys.EventStream.Subscribe(probe.Ref, typeof(ServiceEvent));
 

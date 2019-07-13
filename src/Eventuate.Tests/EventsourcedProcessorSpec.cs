@@ -181,7 +181,7 @@ namespace Eventuate.Tests
             string emitterId = null) =>
             new DurableEvent(payload, emitterId ?? "A", null,
                 ImmutableHashSet<string>.Empty, default,
-                Timestamp(sequenceNr), "logA", "logA", sequenceNr, null,
+                Timestamp(sequenceNr), "A", "A", sequenceNr, null,
                 persistOnEventEvent?.LocalSequenceNr, persistOnEventEvent?.Id);
 
         private static DurableEvent Update(DurableEvent e, object payload = null) =>
@@ -232,15 +232,23 @@ namespace Eventuate.Tests
 
         private const string Config = @"
             akka.loglevel = DEBUG
-            eventuate.log.write-batch-size = 10";
+            akka.log-dead-letters = on
+            eventuate.log.write-batch-size = 10
+            akka.test.single-expect-default = 20s
+
+            eventuate.log {
+              replay-retry-delay = 5ms
+              replay-retry-max = 0
+            }";
         
         public EventsourcedProcessorSpec(ITestOutputHelper output) : base(config: Config,
             output: output)
         {
+            
             this.instanceId = EventsourcedView.InstanceIdCounter.Current;
-            this.srcProbe = CreateTestProbe();
-            this.trgProbe = CreateTestProbe();
-            this.appProbe = CreateTestProbe();
+            this.srcProbe = this.CreateTestProbe("srcProbe");
+            this.trgProbe = this.CreateTestProbe("trgProbe");
+            this.appProbe = this.CreateTestProbe("appProbe");
         }
 
         private IActorRef UnrecoveredStatelessProcessor() => Sys.ActorOf(Props.Create(() =>

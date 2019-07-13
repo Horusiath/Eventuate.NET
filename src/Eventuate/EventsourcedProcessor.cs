@@ -16,6 +16,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Eventuate
@@ -61,7 +62,7 @@ namespace Eventuate
     /// An <see cref="EventsourcedProcessor"/> processor writes events with vector timestamps set to source event vector timestamp.
     /// In other words, it does not modify event vector timestamps.
     /// 
-    /// The source event log and the target event log of an `EventsourcedProcessor` must be different. Writing
+    /// The source event log and the target event log of an <see cref="EventsourcedProcessor"/> must be different. Writing
     /// processed events back to the source event log has no effect.
     /// </summary>
     /// <seealso cref="StatefulProcessor"/>
@@ -74,7 +75,6 @@ namespace Eventuate
         protected EventsourcedProcessor()
         {
             this.settings = new EventsourcedProcessorSettings(Context.System.Settings.Config);
-
         }
 
         /// <summary>
@@ -106,7 +106,12 @@ namespace Eventuate
                 var p = currentProcessedEvents
                     .Select(e => PostProcessDurableEvent(CreateEvent(e, LastHandledEvent.CustomDestinationAggregateIds)))
                     .ToArray();
-                this.processedEvents = this.processedEvents.Add(p);
+                
+                var current = this.processedEvents;
+                while (!current.Equals(ImmutableInterlocked.InterlockedCompareExchange(ref this.processedEvents, current.Add(p), current)))
+                {
+                    current = this.processedEvents;
+                }
             }
             return true;
         }
@@ -125,8 +130,9 @@ namespace Eventuate
         {
             if (LastSequenceNr > processingProgress)
             {
-                var result = await WriteBatches(processedEvents, processingProgress, LastSequenceNr);
-                processedEvents = ImmutableArray<IReadOnlyCollection<DurableEvent>>.Empty;
+                var events = ImmutableInterlocked.InterlockedExchange(ref processedEvents,
+                    ImmutableArray<IReadOnlyCollection<DurableEvent>>.Empty);
+                var result = await WriteBatches(events, processingProgress, LastSequenceNr);
                 return result;
             }
             else return processingProgress;
@@ -223,7 +229,7 @@ namespace Eventuate
             var result = await TargetEventLog.Ask(new ReplicationWrite(events, metadata), timeout: WriteTimeout);
             switch (result)
             {
-                case ReplicationWriteSuccess s: return progress;
+                case ReplicationWriteSuccess _: return progress;
                 case ReplicationWriteFailure f: throw f.Cause;
                 default: throw new NotSupportedException($"Unexpected response message [{result.GetType().FullName}]");
             }
