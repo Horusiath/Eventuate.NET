@@ -184,46 +184,22 @@ namespace Eventuate.Tests
                 Timestamp(sequenceNr), "A", "A", sequenceNr, null,
                 persistOnEventEvent?.LocalSequenceNr, persistOnEventEvent?.Id);
 
-        private static DurableEvent Update(DurableEvent e, object payload = null) =>
-            new DurableEvent(
-                payload: payload ?? e.Payload,
-                emitterId: "B",
-                emitterAggregateId: e.EmitterAggregateId,
-                customDestinationAggregateIds: e.CustomDestinationAggregateIds,
-                systemTimestamp: e.SystemTimestamp,
-                vectorTimestamp: e.VectorTimestamp,
-                processId: string.Empty,
-                localLogId: string.Empty,
-                localSequenceNr: 0L,
-                deliveryId: e.DeliveryId,
-                persistOnEventSequenceNr: e.PersistOnEventSequenceNr,
-                persistOnEventId: e.PersistOnEventId);
+        private static DurableEvent Update(DurableEvent e) =>
+            e.Copy(emitterId: "B", 
+                processId: DurableEvent.UndefinedLogId, 
+                localLogId: DurableEvent.UndefinedLogId,
+                localSequenceNr: DurableEvent.UndefinedSequenceNr);
         
-        private static DurableEvent Copy(DurableEvent e, VectorTime vectorTime, ImmutableHashSet<string> customDestinationAggregateIds = null) =>
-            new DurableEvent(
-                payload: e.Payload,
-                emitterId: e.EmitterId,
-                emitterAggregateId: e.EmitterAggregateId,
-                customDestinationAggregateIds: customDestinationAggregateIds ?? e.CustomDestinationAggregateIds,
-                systemTimestamp: e.SystemTimestamp,
-                vectorTimestamp: vectorTime,
-                processId: e.ProcessId,
-                localLogId: e.LocalLogId,
-                localSequenceNr: e.LocalSequenceNr,
-                deliveryId: e.DeliveryId,
-                persistOnEventSequenceNr: e.PersistOnEventSequenceNr,
-                persistOnEventId: e.PersistOnEventId);
-
         private static readonly DurableEvent eventA = Event("a", 1);
         private static readonly DurableEvent eventB = Event("b", 2);
         private static readonly DurableEvent eventC = Event("c", 3);
 
-        private static readonly DurableEvent eventA1 = Update(eventA, "a-1");
-        private static readonly DurableEvent eventA2 = Update(eventA, "a-2");
-        private static readonly DurableEvent eventB1 = Update(eventB, "b-1");
-        private static readonly DurableEvent eventB2 = Update(eventB, "b-2");
-        private static readonly DurableEvent eventC1 = Update(eventC, "c-1");
-        private static readonly DurableEvent eventC2 = Update(eventC, "c-2");
+        private static readonly DurableEvent eventA1 = Update(eventA.Copy("a-1"));
+        private static readonly DurableEvent eventA2 = Update(eventA.Copy("a-2"));
+        private static readonly DurableEvent eventB1 = Update(eventB.Copy("b-1"));
+        private static readonly DurableEvent eventB2 = Update(eventB.Copy("b-2"));
+        private static readonly DurableEvent eventC1 = Update(eventC.Copy("c-1"));
+        private static readonly DurableEvent eventC2 = Update(eventC.Copy("c-2"));
 
         private readonly int instanceId;
         private readonly TestProbe srcProbe;
@@ -412,14 +388,14 @@ namespace Eventuate.Tests
         public void StatefulProcessor_must_write_events_with_current_vector_time()
         {
             var actor = RecoveredStatefulProcessor();
-            actor.Tell(new Written(Copy(eventA, Timestamp(1, 0))));
-            actor.Tell(new Written(Copy(eventB, Timestamp(0, 1))));
-            ProcessWrite(1, true, 
-                Copy(eventA1, Timestamp(1, 0)),
-                Copy(eventA2, Timestamp(1, 0)));
+            actor.Tell(new Written(eventA.Copy(vectorTimestamp: Timestamp(1, 0))));
+            actor.Tell(new Written(eventB.Copy(vectorTimestamp: Timestamp(0, 1))));
+            ProcessWrite(1, true,
+                eventA1.Copy(vectorTimestamp: Timestamp(1, 0)),
+                eventA2.Copy(vectorTimestamp: Timestamp(1, 0)));
             ProcessWrite(2, true, 
-                Copy(eventB1, Timestamp(1, 1)),
-                Copy(eventB2, Timestamp(1, 1)));
+                eventB1.Copy(vectorTimestamp: Timestamp(1, 1)),
+                eventB2.Copy(vectorTimestamp: Timestamp(1, 1)));
         }
 
         [Fact]
@@ -450,15 +426,15 @@ namespace Eventuate.Tests
         public void EventsourcedProcessor_must_write_events_with_source_event_vector_time()
         {
             var actor = RecoveredStatelessProcessor();
-            actor.Tell(new Written(Copy(eventA, Timestamp(1, 0))));
-            actor.Tell(new Written(Copy(eventB, Timestamp(0, 1))));
+            actor.Tell(new Written(eventA.Copy(vectorTimestamp: Timestamp(1, 0))));
+            actor.Tell(new Written(eventB.Copy(vectorTimestamp: Timestamp(0, 1))));
             
             ProcessWrite(1, true, 
-                Copy(eventA1, Timestamp(1, 0)),
-                Copy(eventA2, Timestamp(1, 0)));
+                eventA1.Copy(vectorTimestamp: Timestamp(1, 0)),
+                eventA2.Copy(vectorTimestamp: Timestamp(1, 0)));
             ProcessWrite(2, true, 
-                Copy(eventB1, Timestamp(0, 1)),
-                Copy(eventB2, Timestamp(0, 1)));
+                eventB1.Copy(vectorTimestamp: Timestamp(0, 1)),
+                eventB2.Copy(vectorTimestamp: Timestamp(0, 1)));
         }
 
         [Fact]
@@ -467,10 +443,10 @@ namespace Eventuate.Tests
         {
             var actor = RecoveredStatelessProcessor();
 
-            var evt1 = Copy(Event("x", 1), Timestamp(1, 0));
-            var evt2 = Copy(Event("x", 2), Timestamp(2, 0));
-            var evt3 = Copy(Event("x", 3), Timestamp(3, 0));
-            var evt4 = Copy(Event("x", 4), Timestamp(4, 0));
+            var evt1 = Event("x", 1).Copy(vectorTimestamp: Timestamp(1, 0));
+            var evt2 = Event("x", 2).Copy(vectorTimestamp: Timestamp(2, 0));
+            var evt3 = Event("x", 3).Copy(vectorTimestamp: Timestamp(3, 0));
+            var evt4 = Event("x", 4).Copy(vectorTimestamp: Timestamp(4, 0));
             
             actor.Tell(new Written(evt1));    // ensure that a write is in progress when processing the next events
             actor.Tell(new Written(evt2));
@@ -491,9 +467,9 @@ namespace Eventuate.Tests
         { 
             var actor = RecoveredStatelessProcessor();
 
-            var evt1 = Copy(Event("x", 1), Timestamp(1, 0));
-            var evt2 = Copy(Event("y", 2), Timestamp(2, 0));
-            var evt3 = Copy(Event("y", 3), Timestamp(3, 0));
+            var evt1 = Event("x", 1).Copy(vectorTimestamp: Timestamp(1, 0));
+            var evt2 = Event("y", 2).Copy(vectorTimestamp: Timestamp(2, 0));
+            var evt3 = Event("y", 3).Copy(vectorTimestamp: Timestamp(3, 0));
             
             actor.Tell(new Written(evt1));    // ensure that a write is in progress when processing the next events
             actor.Tell(new Written(evt2));
@@ -512,9 +488,9 @@ namespace Eventuate.Tests
         {
             var actor = RecoveredStatelessProcessor();
 
-            var evt1 = Copy(Event("x", 1), Timestamp(1, 0));
-            var evt2 = Copy(Event("x", 2), Timestamp(2, 0));
-            var evt3 = Copy(Event("z", 3), Timestamp(3, 0));
+            var evt1 = Event("x", 1).Copy(vectorTimestamp: Timestamp(1, 0));
+            var evt2 = Event("x", 2).Copy(vectorTimestamp: Timestamp(2, 0));
+            var evt3 = Event("z", 3).Copy(vectorTimestamp: Timestamp(3, 0));
             
             actor.Tell(new Written(evt1));    // ensure that a write is in progress when processing the next events
             actor.Tell(new Written(evt2));
@@ -534,7 +510,7 @@ namespace Eventuate.Tests
         {
             var actor = RecoveredStatelessProcessor();
 
-            var evt1 = Copy(Event("z", 1), Timestamp(1, 0));
+            var evt1 = Event("z", 1).Copy(vectorTimestamp: Timestamp(1, 0));
             
             actor.Tell(new Written(evt1));
             ProcessWrite(1, true, Enumerable.Repeat(Update(evt1), 11).ToArray());
@@ -553,7 +529,7 @@ namespace Eventuate.Tests
             ProcessReplay(actor, 1);
 
             var evt1 = Event("x", 1);
-            var expectedEvents = Copy(Update(evt1), evt1.VectorTimestamp, customDestinationAggregateIds);
+            var expectedEvents = Update(evt1).Copy(customDestinationAggregateIds: customDestinationAggregateIds);
             
             actor.Tell(new Written(evt1));
             

@@ -173,6 +173,33 @@ namespace Eventuate
             return new DurableEvent(Payload, systemTimestamp: timestamp, vectorTimestamp: vt, processId: id, localLogId: logId, localSequenceNr: sequenceNr);
         }
 
+        public DurableEvent Copy(
+            object payload = null,
+            string emitterId = null,
+            string emitterAggregateId = null,
+            ImmutableHashSet<string> customDestinationAggregateIds = null,
+            DateTime? systemTimestamp = null,
+            VectorTime vectorTimestamp = null,
+            string processId = null,
+            string localLogId = null,
+            long? localSequenceNr = null,
+            string deliveryId = null,
+            long? persistOnEventSequenceNr = null,
+            EventId? persistOnEventId = null) =>
+            new DurableEvent(
+                payload: payload ?? this.Payload,
+                emitterId: emitterId ?? this.EmitterId,
+                emitterAggregateId: emitterAggregateId ?? this.EmitterAggregateId,
+                customDestinationAggregateIds: customDestinationAggregateIds ?? this.CustomDestinationAggregateIds,
+                systemTimestamp: systemTimestamp ?? this.SystemTimestamp,
+                vectorTimestamp: vectorTimestamp ?? this.VectorTimestamp,
+                processId: processId ?? this.ProcessId,
+                localLogId: localLogId ?? this.LocalLogId,
+                localSequenceNr: localSequenceNr ?? this.LocalSequenceNr,
+                deliveryId: deliveryId ?? this.DeliveryId,
+                persistOnEventSequenceNr: persistOnEventSequenceNr ?? this.PersistOnEventSequenceNr,
+                persistOnEventId: persistOnEventId ?? this.PersistOnEventId);
+
         public bool Equals(DurableEvent other)
         {
             if (ReferenceEquals(null, other)) return false;
