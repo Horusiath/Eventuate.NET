@@ -10,7 +10,6 @@
 using System;
 using System.Collections.Immutable;
 using System.Linq;
-using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.TestKit;
 using Akka.TestKit.Xunit2;
@@ -18,7 +17,7 @@ using FluentAssertions;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace Eventuate.Tests
+namespace Eventuate.Tests.Abstractions
 {
     public abstract class EventsourcedActorIntergrationSpec : TestKit
     {
