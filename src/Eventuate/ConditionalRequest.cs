@@ -43,7 +43,7 @@ namespace Eventuate
         public ConditionalRequestException(string message) : base(message) { }
     }
 
-    public abstract class ConditionalRequestActor : EventsourcedView, IEventsourcedVersion
+    public abstract class ConditionalRequestActor : EventsourcedActor, IEventsourcedVersion
     {
         #region internal classes
 

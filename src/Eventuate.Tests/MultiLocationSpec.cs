@@ -1,9 +1,13 @@
 using System;
 using System.Collections.Immutable;
+using System.Linq.Expressions;
 using Akka.Actor;
 using Akka.Configuration;
+using Akka.Event;
 using Akka.TestKit;
 using Akka.TestKit.Xunit2;
+using Akka.TestKit.Xunit2.Internals;
+using Xunit.Abstractions;
 
 namespace Eventuate.Tests
 {
@@ -120,9 +124,16 @@ namespace Eventuate.Tests
     
     public abstract class MultiLocationSpec : IDisposable
     {
+        protected static readonly ITestKitAssertions Assert = new XunitAssertions();
+        
         private readonly Config providerConfig;
         private ImmutableList<Location> locations = ImmutableList<Location>.Empty;
         private static int counter = 0;
+
+        protected void InitializeLogger(ActorSystem system, ITestOutputHelper output)
+        {
+            ((ExtendedActorSystem) system).SystemActorOf(Props.Create<TestOutputLogger>((Expression<Func<TestOutputLogger>>) (() => new TestOutputLogger(output)), (SupervisorStrategy) null), "log-test").Tell((object) new InitializeLogger((LoggingBus) system.EventStream));
+        }
         
         protected MultiLocationSpec(Config providerConfig = null)
         {

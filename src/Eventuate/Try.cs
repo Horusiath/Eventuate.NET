@@ -8,7 +8,9 @@
 #endregion
 
 using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
@@ -101,6 +103,13 @@ namespace Eventuate
                 value = default;
                 return false;
             }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void ThrowIfFailure()
+        {
+            if (!(exception is null))
+                ExceptionDispatchInfo.Capture(exception).Throw();
         }
 
         public T GetValueOrDefault() => exception is null ? value : default;

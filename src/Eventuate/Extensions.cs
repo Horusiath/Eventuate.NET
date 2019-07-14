@@ -108,5 +108,11 @@ namespace Eventuate
             }
             else return (T)response;
         }
+
+        public static bool TrySet<T>(this TaskCompletionSource<T> promise, in Try<T> result)
+        {
+            if (result.TryGetValue(out var value)) return promise.TrySetResult(value);
+            else return promise.TrySetException(result.Exception);
+        }
     }
 }
