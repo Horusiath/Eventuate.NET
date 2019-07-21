@@ -768,107 +768,102 @@ namespace Eventuate.Tests.EventLogs
         [Fact]
         public void EventLog_must_update_an_emitted_events_process_id_and_vector_timestamp_during_if_the_process_id_is_not_defined()
         {
-//            val evt = DurableEvent("a", emitterIdA, processId = UndefinedLogId)
-//            val exp = DurableEvent("a", emitterIdA, processId = logId, vectorTimestamp = VectorTime(logId -> 1L), localLogId = logId, localSequenceNr = 1)
-//            log ! Write(List(evt), system.deadLetters, replyToProbe.ref, 0, 0)
-//            replyToProbe.expectMsgType[WriteSuccess].events.head should be(exp)
-            throw new NotImplementedException();
+            var evt = new DurableEvent("a", EmitterIdA, processId: DurableEvent.UndefinedLogId);
+            var exp = new DurableEvent("a", EmitterIdA, processId: LogId, vectorTimestamp: new VectorTime((LogId, 1L)), localLogId: LogId, localSequenceNr: 1);
+            Log.Tell(new Write(new []{evt}, Sys.DeadLetters, replyToProbe.Ref, 0, 0));
+            replyToProbe.ExpectMsg<WriteSuccess>().Events.First().Should().Be(exp);
         }
         
         [Fact]
         public void EventLog_must_not_update_an_emitted_events_process_id_and_vector_timestamp_during_if_the_process_id_is_defined()
         {
-//            val evt = DurableEvent("a", emitterIdA, processId = emitterIdA, vectorTimestamp = VectorTime(emitterIdA -> 1L))
-//            val exp = DurableEvent("a", emitterIdA, processId = emitterIdA, vectorTimestamp = VectorTime(emitterIdA -> 1L), localLogId = logId, localSequenceNr = 1)
-//            log ! Write(List(evt), system.deadLetters, replyToProbe.ref, 0, 0)
-//            replyToProbe.expectMsgType[WriteSuccess].events.head should be(exp)
-            throw new NotImplementedException();
+            var evt = new DurableEvent("a", EmitterIdA, processId: DurableEvent.UndefinedLogId, vectorTimestamp: new VectorTime((LogId, 1L)));
+            var exp = new DurableEvent("a", EmitterIdA, processId: LogId, vectorTimestamp: new VectorTime((LogId, 1L)), localLogId: LogId, localSequenceNr: 1);
+            Log.Tell(new Write(new []{evt}, Sys.DeadLetters, replyToProbe.Ref, 0, 0));
+            replyToProbe.ExpectMsg<WriteSuccess>().Events.First().Should().Be(exp);
         }
         
         [Fact]
         public void EventLog_must_update_a_replicated_events_process_id_and_vector_timestamp_during_if_the_process_id_is_not_defined()
         {
-//            val evt = DurableEvent("a", emitterIdA, processId = UndefinedLogId, vectorTimestamp = VectorTime(remoteLogId -> 1L))
-//            val exp = DurableEvent("a", emitterIdA, processId = logId, vectorTimestamp = VectorTime(remoteLogId -> 1L, logId -> 1L), localLogId = logId, localSequenceNr = 1)
-//            registerCollaborator(aggregateId = None, collaborator = replyToProbe)
-//            log ! ReplicationWrite(List(evt), Map(remoteLogId -> ReplicationMetadata(5, VectorTime.Zero)))
-//            replyToProbe.expectMsgType[Written].event should be(exp)
-            throw new NotImplementedException();
+            var evt = new DurableEvent("a", EmitterIdA, processId: DurableEvent.UndefinedLogId, vectorTimestamp: new VectorTime((RemoteLogId, 1L)));
+            var exp = new DurableEvent("a", EmitterIdA, processId: LogId, vectorTimestamp: new VectorTime((RemoteLogId, 1L), (LogId, 1L)), localLogId: LogId, localSequenceNr: 1);
+            RegisterCollaborator(null, replyToProbe);
+            Log.Tell(new ReplicationWrite(new []{evt}, Map((RemoteLogId, new ReplicationMetadata(5, VectorTime.Zero)))));
+            replyToProbe.ExpectMsg<Written>().Event.Should().Be(exp);
         }
         
         [Fact]
         public void EventLog_must_not_update_a_replicated_events_process_id_and_vector_timestamp_during_if_the_process_id_is_defined()
         {
-//            val evt = DurableEvent("a", emitterIdA, processId = emitterIdA, vectorTimestamp = VectorTime(emitterIdA -> 1L))
-//            val exp = DurableEvent("a", emitterIdA, processId = emitterIdA, vectorTimestamp = VectorTime(emitterIdA -> 1L), localLogId = logId, localSequenceNr = 1)
-//            registerCollaborator(aggregateId = None, collaborator = replyToProbe)
-//            log ! ReplicationWrite(List(evt), Map(remoteLogId -> ReplicationMetadata(5, VectorTime.Zero)))
-//            replyToProbe.expectMsgType[Written].event should be(exp)
-            throw new NotImplementedException();
+            var evt = new DurableEvent("a", EmitterIdA, processId: DurableEvent.UndefinedLogId, vectorTimestamp: new VectorTime((EmitterIdA, 1L)));
+            var exp = new DurableEvent("a", EmitterIdA, processId: LogId, vectorTimestamp: new VectorTime((EmitterIdA, 1L)), localLogId: LogId, localSequenceNr: 1);
+            RegisterCollaborator(null, replyToProbe);
+            Log.Tell(new ReplicationWrite(new []{evt}, Map((RemoteLogId, new ReplicationMetadata(5, VectorTime.Zero)))));
+            replyToProbe.ExpectMsg<Written>().Event.Should().Be(exp);
         }
         
         [Fact]
         public void EventLog_must_not_write_events_to_the_target_log_that_are_in_causal_past_of_the_target_log()
         {
-//            val evt1 = DurableEvent("i", emitterIdB, vectorTimestamp = timestamp(0, 7), processId = remoteLogId)
-//            val evt2 = DurableEvent("j", emitterIdB, vectorTimestamp = timestamp(0, 8), processId = remoteLogId)
-//            val evt3 = DurableEvent("k", emitterIdB, vectorTimestamp = timestamp(0, 9), processId = remoteLogId)
-//            registerCollaborator(aggregateId = None, collaborator = replyToProbe)
-//            log ! ReplicationWrite(List(evt1, evt2), Map(remoteLogId -> ReplicationMetadata(5, VectorTime.Zero)))
-//            log ! ReplicationWrite(List(evt2, evt3), Map(remoteLogId -> ReplicationMetadata(6, VectorTime.Zero)))
-//            replyToProbe.expectMsgType[Written].event.payload should be("i")
-//            replyToProbe.expectMsgType[Written].event.payload should be("j")
-//            replyToProbe.expectMsgType[Written].event.payload should be("k")
-            throw new NotImplementedException();
+            var evt1 = new DurableEvent("i", EmitterIdB, vectorTimestamp: Timestamp(0, 7), processId: RemoteLogId);
+            var evt2 = new DurableEvent("j", EmitterIdB, vectorTimestamp: Timestamp(0, 8), processId: RemoteLogId);
+            var evt3 = new DurableEvent("k", EmitterIdB, vectorTimestamp: Timestamp(0, 9), processId: RemoteLogId);
+            
+            RegisterCollaborator(null, replyToProbe);
+            Log.Tell(new ReplicationWrite(new []{evt1, evt2}, Map((RemoteLogId, new ReplicationMetadata(5, VectorTime.Zero)))));
+            Log.Tell(new ReplicationWrite(new []{evt2, evt3}, Map((RemoteLogId, new ReplicationMetadata(6, VectorTime.Zero)))));
+            replyToProbe.ExpectMsg<Written>().Event.Payload.Should().Be("i");
+            replyToProbe.ExpectMsg<Written>().Event.Payload.Should().Be("j");
+            replyToProbe.ExpectMsg<Written>().Event.Payload.Should().Be("k");
         }
         
         [Fact]
         public void EventLog_must_not_read_events_from_the_source_log_that_are_in_causal_past_of_the_target_log_using_the_target_time_from_the_request()
         {
-//            generateEmittedEvents()
-//            log.tell(ReplicationRead(1, Int.MaxValue, Int.MaxValue, NoFilter, remoteLogId, dl, timestamp(1)), replyToProbe.ref)
-//            replyToProbe.expectMsgType[ReplicationReadSuccess].events.map(_.payload) should be(Seq("a-2", "a-3"))
-            throw new NotImplementedException();
+            GenerateEmittedEvents();
+            Log.Tell(new ReplicationRead(1, int.MaxValue, int.MaxValue, NoFilter.Instance, RemoteLogId, Sys.DeadLetters, Timestamp(1, 0)), replyToProbe.Ref);
+            replyToProbe.ExpectMsg<ReplicationReadSuccess>().Events
+                .Select(x => x.Payload)
+                .Should().BeEquivalentTo("a-2", "a-3");
         }
         
         [Fact]
         public void EventLog_must_not_read_events_from_the_source_log_that_are_in_causal_past_of_the_target_log__using_the_target_time_from_the_cache()
         {
-//            generateEmittedEvents()
-//            log ! ReplicationWrite(Nil, Map(remoteLogId -> ReplicationMetadata(5, timestamp(2)))) // update time cache
-//            log.tell(ReplicationRead(1, Int.MaxValue, Int.MaxValue, NoFilter, remoteLogId, dl, timestamp(1)), replyToProbe.ref)
-//            replyToProbe.expectMsgType[ReplicationReadSuccess].events.map(_.payload) should be(Seq("a-3"))
-            throw new NotImplementedException();
+            GenerateEmittedEvents();
+            Log.Tell(new ReplicationWrite(Array.Empty<DurableEvent>(), Map((RemoteLogId, new ReplicationMetadata(5, Timestamp(2, 0))))));
+            Log.Tell(new ReplicationRead(1, int.MaxValue, int.MaxValue, NoFilter.Instance, RemoteLogId, Sys.DeadLetters, Timestamp(1, 0)), replyToProbe.Ref);
+            replyToProbe.ExpectMsg<ReplicationReadSuccess>().Events
+                .Select(x => x.Payload)
+                .Should().BeEquivalentTo("a-3");
         }
         
         [Fact]
-        public void EventLog_must_delete_all_events_when_requested_sequence_nr_is_higher_than_current()
+        public async Task EventLog_must_delete_all_events_when_requested_sequence_nr_is_higher_than_current()
         {
-//            generateEmittedEvents()
-//                (log ? Delete(generatedEmittedEvents(2).localSequenceNr + 1)).await
-//            log.tell(Replay(1L, None, 0), replyToProbe.ref)
-//            replyToProbe.expectMsg(ReplaySuccess(Nil, 3L, 0))
-            throw new NotImplementedException();
+            GenerateEmittedEvents();
+            await Log.Ask(new Delete(generatedEmittedEvents[2].LocalSequenceNr + 1));
+            Log.Tell(new Replay(null, 0, 1L), replyToProbe.Ref);
+            replyToProbe.ExpectMsg(new ReplaySuccess(Array.Empty<DurableEvent>(), 3L, 0));
         }
         
         [Fact]
-        public void EventLog_must_not_replay_deleted_events()
+        public async Task EventLog_must_not_replay_deleted_events()
         {
-//            generateEmittedEvents()
-//                (log ? Delete(generatedEmittedEvents(1).localSequenceNr)).await
-//            log.tell(Replay(1L, None, 0), replyToProbe.ref)
-//            replyToProbe.expectMsg(ReplaySuccess(generatedEmittedEvents.slice(2, 3), generatedEmittedEvents(2).localSequenceNr, 0))
-            throw new NotImplementedException();
+            GenerateEmittedEvents();
+            await Log.Ask(new Delete(generatedEmittedEvents[1].LocalSequenceNr));
+            Log.Tell(new Replay(null, 0, 1L), replyToProbe.Ref);
+            replyToProbe.ExpectMsg(new ReplaySuccess(generatedEmittedEvents.Skip(2).Take(1), generatedEmittedEvents[2].LocalSequenceNr, 0));
         }
         
         [Fact]
-        public void EventLog_must_not_replay_deleted_events_from_an_index()
+        public async Task EventLog_must_not_replay_deleted_events_from_an_index()
         {
-//            generateEmittedEvents(customDestinationAggregateIds = Set("a"))
-//                (log ? Delete(generatedEmittedEvents(1).localSequenceNr)).await
-//            log.tell(Replay(1L, None, Some("a"), 0), replyToProbe.ref)
-//            replyToProbe.expectMsg(ReplaySuccess(generatedEmittedEvents.slice(2, 3), generatedEmittedEvents(2).localSequenceNr, 0))
-            throw new NotImplementedException();
+            GenerateEmittedEvents(customDestinationAggregateIds: ImmutableHashSet.Create("a"));
+            await Log.Ask(new Delete(generatedEmittedEvents[1].LocalSequenceNr));
+            Log.Tell(new Replay(null, 0, 1L, aggregateId: "a"), replyToProbe.Ref);
+            replyToProbe.ExpectMsg(new ReplaySuccess(generatedEmittedEvents.Skip(2).Take(1), generatedEmittedEvents[2].LocalSequenceNr, 0));
         }
         
         [Fact]
