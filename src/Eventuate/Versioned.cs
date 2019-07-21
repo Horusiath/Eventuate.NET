@@ -1,10 +1,12 @@
 ﻿#region copyright
+
 // -----------------------------------------------------------------------
 //  <copyright file="Versioned.cs" company="Bartosz Sypytkowski">
 //      Copyright (C) 2015-2019 Red Bull Media House GmbH <http://www.redbullmediahouse.com>
 //      Copyright (C) 2019-2019 Bartosz Sypytkowski <b.sypytkowski@gmail.com>
 //  </copyright>
 // -----------------------------------------------------------------------
+
 #endregion
 
 using System;
@@ -66,9 +68,9 @@ namespace Eventuate
         }
 
         public bool Equals(Versioned<T> other) =>
-            SystemTimestamp.Equals(other.SystemTimestamp) 
-            && string.Equals(Creator, other.Creator) 
-            && VectorTimestamp == other.VectorTimestamp 
+            SystemTimestamp.Equals(other.SystemTimestamp)
+            && string.Equals(Creator, other.Creator)
+            && VectorTimestamp == other.VectorTimestamp
             && EqualityComparer<T>.Default.Equals(Value, other.Value);
 
         public override bool Equals(object obj) => obj is Versioned<T> other && Equals(other);
@@ -108,7 +110,8 @@ namespace Eventuate
         /// there is no such predecessor, a new concurrent version is created 
         /// (optionally derived from an older entry in the version history, in case of incremental updates).
         /// </summary>
-        IConcurrentVersions<TValue, TUpdate> Update(TUpdate update, VectorTime vectorTimestamp, DateTime? systemTimestamp = null, string creator = null);
+        IConcurrentVersions<TValue, TUpdate> Update(TUpdate update, VectorTime vectorTimestamp,
+            DateTime? systemTimestamp = null, string creator = null);
 
         /// <summary>
         /// Resolves multiple concurrent versions to a single version. For the resolution to be successful,
@@ -117,7 +120,8 @@ namespace Eventuate
         /// participate in the resolution process (which allows for resolutions to be concurrent to other
         /// updates).
         /// </summary>
-        IConcurrentVersions<TValue, TUpdate> Resolve(VectorTime selectedTimestamp, VectorTime vectorTimestamp, DateTime? systemTimestamp = null);
+        IConcurrentVersions<TValue, TUpdate> Resolve(VectorTime selectedTimestamp, VectorTime vectorTimestamp,
+            DateTime? systemTimestamp = null);
 
         /// <summary>
         /// Returns all (un-resolved) concurrent versions.
@@ -160,19 +164,22 @@ namespace Eventuate
 
         public string Owner { get; }
 
-        public IConcurrentVersions<T, T> Resolve(VectorTime selectedTimestamp, VectorTime vectorTimestamp, DateTime? systemTimestamp = null)
+        public IConcurrentVersions<T, T> Resolve(VectorTime selectedTimestamp, VectorTime vectorTimestamp,
+            DateTime? systemTimestamp = null)
         {
             var builder = ImmutableList.CreateBuilder<Versioned<T>>();
             foreach (var v in this.versions)
             {
-                if (v.VectorTimestamp == selectedTimestamp) builder.Add(new Versioned<T>(v.Value, vectorTimestamp, systemTimestamp));
+                if (v.VectorTimestamp == selectedTimestamp)
+                    builder.Add(new Versioned<T>(v.Value, vectorTimestamp, systemTimestamp));
                 else if (v.VectorTimestamp.IsConcurrent(vectorTimestamp)) builder.Add(v);
             }
 
             return new ConcurrentVersionsList<T>(builder.ToImmutable(), this.Owner);
         }
 
-        public IConcurrentVersions<T, T> Update(T update, VectorTime vectorTimestamp, DateTime? systemTimestamp = null, string creator = null)
+        public IConcurrentVersions<T, T> Update(T update, VectorTime vectorTimestamp, DateTime? systemTimestamp = null,
+            string creator = null)
         {
             var builder = ImmutableList.CreateBuilder<Versioned<T>>();
             var conflictResolved = false;
@@ -202,7 +209,7 @@ namespace Eventuate
                     }
                 }
             }
-            
+
             if (!conflictResolved)
                 builder.Add(new Versioned<T>(update, vectorTimestamp, systemTimestamp, creator));
 
@@ -265,8 +272,9 @@ namespace Eventuate
                 var childrenCopies = ImmutableArray.CreateBuilder<Node>(this.children.Length);
                 foreach (var child in this.children)
                 {
-                    childrenCopies.Add((Node)child.Clone());
+                    childrenCopies.Add((Node) child.Clone());
                 }
+
                 return new Node(this.Versioned)
                 {
                     children = childrenCopies.ToImmutable(),
@@ -291,6 +299,29 @@ namespace Eventuate
                 var v = this.Versioned;
                 this.Versioned = new Versioned<TValue>(v.Value, vt, st, v.Creator);
             }
+
+            public override string ToString()
+            {
+                void WriteRecursive(Node node, StringBuilder builder, int nesting)
+                {
+                    for (int i = 0; i < nesting; i++) builder.Append('\t');
+                    builder.Append("- <");
+                    if (node.rejected)
+                        builder.Append("rejected:");
+                    builder.Append(node.Versioned.ToString()).Append('>');
+
+                    nesting++;
+                    foreach (var child in node.children)
+                    {
+                        builder.AppendLine();
+                        WriteRecursive(child, builder, nesting);
+                    }
+                }
+
+                var sb = new StringBuilder();
+                WriteRecursive(this, sb, 0);
+                return sb.ToString();
+            }
         }
 
         private readonly Node root;
@@ -310,12 +341,16 @@ namespace Eventuate
             else return node.children.Aggregate(result, (acc, n) => Aggregate(n, acc, fold));
         }
 
-        private IEnumerable<Node> Leaves() => Aggregate(this.root, ImmutableList<Node>.Empty, (acc, n) =>  n.IsLeaf ? acc.Add(n) : acc);
+        private IEnumerable<Node> Leaves() =>
+            Aggregate(this.root, ImmutableList<Node>.Empty, (acc, n) => n.IsLeaf ? acc.Add(n) : acc);
 
         private IEnumerable<Node> Nodes() => Aggregate(this.root, ImmutableList<Node>.Empty, (acc, n) => acc.Add(n));
 
         private Node Predecessor(VectorTime timestamp) => Aggregate(this.root, this.root, (candidate, n) =>
-            (timestamp > n.Versioned.VectorTimestamp && n.Versioned.VectorTimestamp > candidate.Versioned.VectorTimestamp) ? n : candidate);
+            (timestamp > n.Versioned.VectorTimestamp &&
+             n.Versioned.VectorTimestamp > candidate.Versioned.VectorTimestamp)
+                ? n
+                : candidate);
 
         public IEnumerable<Versioned<TValue>> All
         {
@@ -329,59 +364,48 @@ namespace Eventuate
             }
         }
 
-        public bool HasConflict => !this.root.IsLeaf;
+        public bool HasConflict => All.Count() > 1;
 
         public string Owner { get; }
 
-        public IConcurrentVersions<TValue, TUpdate> Resolve(VectorTime selectedTimestamp, VectorTime vectorTimestamp, DateTime? systemTimestamp = null)
+        public IConcurrentVersions<TValue, TUpdate> Resolve(VectorTime selectedTimestamp, VectorTime vectorTimestamp,
+            DateTime? systemTimestamp = null)
         {
             foreach (var n in this.Leaves())
             {
-                if (n.rejected) { } // ignore
-                else if (n.Versioned.VectorTimestamp.IsConcurrent(vectorTimestamp)) { } // ignore
-                else if (n.Versioned.VectorTimestamp == selectedTimestamp) n.Stamp(vectorTimestamp, systemTimestamp ?? DateTime.MinValue);
+                if (n.rejected)
+                {
+                } // ignore
+                else if (n.Versioned.VectorTimestamp.IsConcurrent(vectorTimestamp))
+                {
+                } // ignore
+                else if (n.Versioned.VectorTimestamp == selectedTimestamp)
+                    n.Stamp(vectorTimestamp, systemTimestamp ?? DateTime.MinValue);
                 else n.Reject();
             }
+
             return this;
         }
 
-        public IConcurrentVersions<TValue, TUpdate> Update(TUpdate update, VectorTime vectorTimestamp, DateTime? systemTimestamp = null, string creator = null)
+        public IConcurrentVersions<TValue, TUpdate> Update(TUpdate update, VectorTime vectorTimestamp,
+            DateTime? systemTimestamp = null, string creator = null)
         {
             var p = Predecessor(vectorTimestamp);
-            p.AddChild(new Node(new Versioned<TValue>(this.projection(p.Versioned.Value, update), vectorTimestamp, systemTimestamp, creator)));
+            p.AddChild(new Node(new Versioned<TValue>(this.projection(p.Versioned.Value, update), vectorTimestamp,
+                systemTimestamp, creator)));
             return this;
         }
 
         public IConcurrentVersions<TValue, TUpdate> WithOwner(string owner) =>
-            new ConcurrentVersionsTree<TValue, TUpdate>((Node)this.root.Clone(), owner, this.projection);
+            new ConcurrentVersionsTree<TValue, TUpdate>((Node) this.root.Clone(), owner, this.projection);
 
         public IConcurrentVersions<TValue, TUpdate> WithProjection(Func<TValue, TUpdate, TValue> projection) =>
-            new ConcurrentVersionsTree<TValue, TUpdate>((Node)this.root.Clone(), this.Owner, projection);
+            new ConcurrentVersionsTree<TValue, TUpdate>((Node) this.root.Clone(), this.Owner, projection);
 
-        public object Clone() => new ConcurrentVersionsTree<TValue, TUpdate>((Node)this.root.Clone(), this.Owner, this.projection);
+        public object Clone() =>
+            new ConcurrentVersionsTree<TValue, TUpdate>((Node) this.root.Clone(), this.Owner, this.projection);
 
-        public override string ToString()
-        {
-            void WriteRecursive(Node node, StringBuilder builder, int nesting)
-            {
-                for (int i = 0; i < nesting; i++) builder.Append('\t');
-                builder.Append("- <");
-                if (node.rejected)
-                    builder.Append("rejected:");
-                builder.Append(node.Versioned.ToString()).Append('>');
-
-                nesting++;
-                foreach (var child in node.children)
-                {
-                    builder.AppendLine();
-                    WriteRecursive(child, builder, nesting);
-                }
-            }
-            
-            var sb = new StringBuilder();
-            WriteRecursive(this.root, sb, 0);
-            return sb.ToString();
-        }
+        public override string ToString() => this.root.ToString();
     }
 
     public static class ConcurrentVersionsTree
@@ -392,21 +416,26 @@ namespace Eventuate
         /// </summary>
         /// <param name="initial">Value of the initial version.</param>
         /// <param name="projection">Projection function for updates.</param>
-        public static ConcurrentVersionsTree<TValue, TUpdate> Create<TValue, TUpdate>(TValue initial, Func<TValue, TUpdate, TValue> projection) =>
-            new ConcurrentVersionsTree<TValue, TUpdate>(new ConcurrentVersionsTree<TValue, TUpdate>.Node(new Versioned<TValue>(initial, VectorTime.Zero)), projection: projection);
+        public static ConcurrentVersionsTree<TValue, TUpdate> Create<TValue, TUpdate>(TValue initial,
+            Func<TValue, TUpdate, TValue> projection) =>
+            new ConcurrentVersionsTree<TValue, TUpdate>(
+                new ConcurrentVersionsTree<TValue, TUpdate>.Node(new Versioned<TValue>(initial, VectorTime.Zero)),
+                projection: projection);
 
         /// <summary>
         /// Creates a new <see cref="ConcurrentVersionsTree{TValue, TUpdate}"/> that uses projection function to compute
         /// new (potentially concurrent) versions from a parent version.
         /// </summary>
         /// <param name="projection">Projection function for updates.</param>
-        public static ConcurrentVersionsTree<TValue, TUpdate> Create<TValue, TUpdate>(Func<TValue, TUpdate, TValue> projection) where TValue : new() =>
+        public static ConcurrentVersionsTree<TValue, TUpdate> Create<TValue, TUpdate>(
+            Func<TValue, TUpdate, TValue> projection) where TValue : new() =>
             Create(new TValue(), projection);
     }
 
     public static class ConcurrentVersionsExtensions
     {
-        public static IConcurrentVersions<T1, T2> Resolve<T1, T2>(this IConcurrentVersions<T1, T2> versions, VectorTime selectedTimestamp)
+        public static IConcurrentVersions<T1, T2> Resolve<T1, T2>(this IConcurrentVersions<T1, T2> versions,
+            VectorTime selectedTimestamp)
         {
             var vectorTime = VectorTime.Zero;
             DateTime systemTime = default;

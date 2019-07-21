@@ -173,7 +173,7 @@ namespace Eventuate.Tests
                 .Resolve(VectorTime(2, 0, 0), VectorTime(2, 2, 0))
                 .Update("d", VectorTime(3, 2, 0));
 
-            result.HasConflict.Should().Be(false);
+            result.HasConflict.Should().Be(false, $"\n({result})");
             var all = result.All.ToArray();
             all[0].Should().Be(new Versioned<string>("abd", VectorTime(3, 2, 0)));
         }
@@ -192,9 +192,9 @@ namespace Eventuate.Tests
             var upd2 = ((ConcurrentVersionsTree<string, string>) tree.Clone())
                 .Resolve(VectorTime(1, 1, 0), VectorTime(2, 2, 0));
 
-            tree.HasConflict.Should().Be(true);
-            upd1.HasConflict.Should().Be(false);
-            upd2.HasConflict.Should().Be(false);
+            tree.HasConflict.Should().Be(true, $"\ntree: ({tree})");
+            upd1.HasConflict.Should().Be(false, $"\nupd1: ({upd1})");
+            upd2.HasConflict.Should().Be(false, $"\nupd2: ({upd2})");
             
             tree.All.Should().BeEquivalentTo(
                 new Versioned<string>("ab", VectorTime(2, 0, 0)),
