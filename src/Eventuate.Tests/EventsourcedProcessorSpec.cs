@@ -37,20 +37,7 @@ namespace Eventuate.Tests
 
             protected override DurableEvent PostProcessDurableEvent(DurableEvent e)
             {
-                var e2 = new DurableEvent(
-                    payload: e.Payload,
-                    emitterId: e.EmitterId,
-                    emitterAggregateId: e.EmitterAggregateId,
-                    customDestinationAggregateIds: customDestinationAggregateIds,
-                    systemTimestamp: e.SystemTimestamp,
-                    vectorTimestamp: e.VectorTimestamp,
-                    processId: e.ProcessId,
-                    localLogId: e.LocalLogId,
-                    localSequenceNr: e.LocalSequenceNr,
-                    deliveryId: e.DeliveryId,
-                    persistOnEventSequenceNr: e.PersistOnEventSequenceNr,
-                    persistOnEventId: e.PersistOnEventId);
-                return base.PostProcessDurableEvent(e);
+                return e.Copy(customDestinationAggregateIds: this.customDestinationAggregateIds);
             }
 
             public override IEnumerable<object> ProcessEvent(object domainEvent)
@@ -457,7 +444,12 @@ namespace Eventuate.Tests
             ProcessWrite(1, true, Enumerable.Repeat(Update(evt1), 4).ToArray());
             
             // process remaining writes
-            ProcessPartialWrite(1, true, Enumerable.Repeat(Update(evt2), 4).Union(Enumerable.Repeat(Update(evt3), 4)).ToArray());
+            var expected = new []
+            {
+                Update(evt2), Update(evt2), Update(evt2), Update(evt2),
+                Update(evt3), Update(evt3), Update(evt3), Update(evt3)
+            };
+            ProcessPartialWrite(1, true, expected);
             ProcessWrite(4, true, Enumerable.Repeat(Update(evt4), 4).ToArray());
         }
 
@@ -479,7 +471,12 @@ namespace Eventuate.Tests
             ProcessWrite(1, true, Enumerable.Repeat(Update(evt1), 4).ToArray());
             
             // process remaining writes
-            ProcessWrite(3, true, Enumerable.Repeat(Update(evt2), 5).Union(Enumerable.Repeat(Update(evt3), 5)).ToArray());
+            var expected = new []
+            {
+                Update(evt2), Update(evt2), Update(evt2), Update(evt2), Update(evt2),
+                Update(evt3), Update(evt3), Update(evt3), Update(evt3), Update(evt3)
+            };
+            ProcessWrite(3, true, expected);
         }
 
         [Fact]
