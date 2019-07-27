@@ -141,7 +141,7 @@ namespace Eventuate
     /// <seealso cref="StatefulProcessor"/>
     /// <typeparam name="TRead">Result type of the asynchronous read operation.</typeparam>
     /// <typeparam name="TWrite">Result type of the asynchronous write operations.</typeparam>
-    public abstract class EventsourcedWriter<TRead, TWrite> : EventsourcedView
+    public abstract class EventsourcedWriter<TRead, TWrite> : EventsourcedView, IEventsourcedVersion
     {
         private readonly EventsourcedWriterSettings settings;
         private int numPending = 0;
@@ -206,9 +206,14 @@ namespace Eventuate
         internal override bool ReceiveEventInternal(DurableEvent e, Receive behavior)
         {
             numPending++;
+            var prev = this.CurrentVersion;
+            this.UpdateVersion(e);
             var handled = base.ReceiveEventInternal(e, behavior);
             if (!handled)
+            {
+                this.CurrentVersion = prev;
                 numPending--;
+            }
             return handled;
         }
 

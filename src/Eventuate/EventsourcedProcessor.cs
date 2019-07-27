@@ -253,16 +253,6 @@ namespace Eventuate
             return handled;
         }
 
-        internal override bool ReceiveEventInternal(DurableEvent e, Receive behavior)
-        {
-            var previousVersion = this.CurrentVersion;
-            this.UpdateVersion(e);
-            var handled = base.ReceiveEventInternal(e, behavior);
-            if (handled)
-                this.CurrentVersion = previousVersion;
-            return handled;
-        }
-
         protected override DurableEvent CreateEvent(object payload, ImmutableHashSet<string> customDestinationAggregateIds) =>
             this.DurableEvent(payload, customDestinationAggregateIds);
 
