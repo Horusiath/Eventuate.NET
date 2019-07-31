@@ -7,7 +7,14 @@
 // -----------------------------------------------------------------------
 #endregion
 
+using System;
+using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using Akka.Actor;
+using Akka.Event;
+using Akka.IO;
+using Akka.Serialization;
+using Cassandra;
 
 namespace Eventuate.Cassandra
 {
@@ -70,9 +77,176 @@ namespace Eventuate.Cassandra
     /// <seealso cref="CassandraEventLog"/>
     public class Cassandra : IExtension
     {
+        public static Cassandra Get(ActorSystem system) => system.WithExtension<Cassandra, CassandraProvider>();
+
+        private readonly ExtendedActorSystem system;
+        private readonly ILoggingAdapter logger;
+        private readonly CassandraStatements statements;
+        private ISession session;
+        private ICluster cluster;
+
+        public Task Initialized { get; }
+        public ISession Session
+        {
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            get
+            {
+                if (session is null)
+                    throw new InvalidOperationException("Session is not initialized yet. Await for `Initialized` property and try again afterwards.");
+                
+                return session;
+            }
+        }
+
+        public ICluster Cluster
+        {
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            get
+            {
+                if (cluster is null)
+                    throw new InvalidOperationException("Cluster is not initialized yet. Await for `Initialized` property and try again afterwards.");
+                
+                return cluster;
+            }
+        }
+
         public Cassandra(ExtendedActorSystem system)
         {
-            
+            this.system = system;
+            Settings = new CassandraEventLogSettings(system.Settings.Config.GetConfig("eventuate.log"));
+            Serializer = system.Serialization;
+            this.logger = system.Log;
+            this.statements = new CassandraStatements(Settings);
+            system.RegisterOnTermination(() =>
+            {
+                session?.Dispose();
+                cluster?.Dispose();
+            });
+            this.Initialized = Task.Run(this.InitializeAsync);
+        }
+
+        private async Task InitializeAsync()
+        {
+            this.session = await ConnectAsync();
+            this.cluster = session.Cluster;
+            try
+            {
+                if (Settings.KeyspaceAutoCreate)
+                    await session.ExecuteAsync(new SimpleStatement(statements.CreateKeySpaceStatement));
+
+                var stmt = new BatchStatement()
+                    .Add(new SimpleStatement(statements.CreateEventLogClockTableStatement))
+                    .Add(new SimpleStatement(statements.CreateReplicationProgressTableStatement))
+                    .Add(new SimpleStatement(statements.CreateDeletedToTableStatement));
+
+                await session.ExecuteAsync(stmt);
+            }
+            catch (Exception e)
+            {
+                logger.Error(e, "Failed to initialize cassandra extension");
+                await system.Terminate();
+                throw;
+            }
+        }
+
+        
+
+        private async Task<ISession> ConnectAsync(int retries = 0)
+        {
+            try
+            {
+                return this.Settings.ClusterBuilder.Build().Connect();
+            }
+            catch (Exception e) when (retries < Settings.ConnectionRetryMax)
+            {
+                this.logger.Error(e, "Cannot connect to cluster (attempt {0}/{1} ...)", retries + 1, Settings.ConnectionRetryMax + 1);
+                await Task.Delay(Settings.ConnectionRetryDelay);
+                return await ConnectAsync(retries + 1);
+            }
+        }
+
+        /// <summary>
+        /// Settings used by the Cassandra storage backend. Closed when the `ActorSystem` of
+        /// this extension terminates.
+        /// </summary>
+        public CassandraEventLogSettings Settings { get; }
+        
+        /// <summary> 
+        /// Serializer used by the Cassandra storage backend. Closed when the <see cref="ActorSystem"/> of
+        /// this extension terminates.
+        /// </summary>
+        internal Serialization Serializer { get; }
+        
+        public async Task CreateEventTable(string logId) => 
+            await session.ExecuteAsync(new SimpleStatement(statements.CreateEventTableStatement(logId)));
+
+        public async Task CreateAggregateEventTable(string logId) => 
+            await session.ExecuteAsync(new SimpleStatement(statements.CreateAggregateEventTableStatement(logId)));
+
+        public async Task<PreparedStatement> PrepareWriteEvent(string logId)
+        {
+            var stmt = await session.PrepareAsync(statements.WriteEventStatement(logId));
+            return stmt.SetConsistencyLevel(Settings.WriteConsistency);
+        }
+        
+        public async Task<PreparedStatement> PrepareReadEvents(string logId)
+        {
+            var stmt = await session.PrepareAsync(statements.ReadEventStatement(logId));
+            return stmt.SetConsistencyLevel(Settings.ReadConsistency);
+        }
+        
+        public async Task<PreparedStatement> PrepareWriteAggregateEvent(string logId)
+        {
+            var stmt = await session.PrepareAsync(statements.WriteAggregateEventStatement(logId));
+            return stmt.SetConsistencyLevel(Settings.WriteConsistency);
+        }
+        
+        public async Task<PreparedStatement> PrepareReadAggregateEvents(string logId)
+        {
+            var stmt = await session.PrepareAsync(statements.ReadAggregateEventStatement(logId));
+            return stmt.SetConsistencyLevel(Settings.ReadConsistency);
+        }
+
+        public async Task<PreparedStatement> PreparedWriteEventLogClockStatement()
+        {
+            var stmt = await session.PrepareAsync(statements.WriteEventLogClockStatement);
+            return stmt.SetConsistencyLevel(Settings.WriteConsistency);
+        }
+
+        public async Task<PreparedStatement> PreparedReadEventLogClockStatement()
+        {
+            var stmt = await session.PrepareAsync(statements.ReadEventLogClockStatement);
+            return stmt.SetConsistencyLevel(Settings.ReadConsistency);
+        }
+        
+        public async Task<PreparedStatement> PreparedWriteReplicationProgressStatement()
+        {
+            var stmt = await session.PrepareAsync(statements.WriteReplicationProgressStatement);
+            return stmt.SetConsistencyLevel(Settings.WriteConsistency);
+        }
+        
+        public async Task<PreparedStatement> PreparedReadReplicationProgressesStatement()
+        {
+            var stmt = await session.PrepareAsync(statements.ReadReplicationProgressesStatement);
+            return stmt.SetConsistencyLevel(Settings.ReadConsistency);
+        }
+        
+        public async Task<PreparedStatement> PreparedReadReplicationProgressStatement()
+        {
+            var stmt = await session.PrepareAsync(statements.ReadReplicationProgressStatement);
+            return stmt.SetConsistencyLevel(Settings.ReadConsistency);
+        }
+        
+        public async Task<PreparedStatement> PreparedWriteDeletedToStatement()
+        {
+            var stmt = await session.PrepareAsync(statements.WriteDeletedToStatement);
+            return stmt.SetConsistencyLevel(Settings.WriteConsistency);
+        }
+
+        public async Task<PreparedStatement> PreparedReadDeletedToStatement()
+        {
+            var stmt = await session.PrepareAsync(statements.ReadDeletedToStatement);
+            return stmt.SetConsistencyLevel(Settings.ReadConsistency);
         }
     }
 }

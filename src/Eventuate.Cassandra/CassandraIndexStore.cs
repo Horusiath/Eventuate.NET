@@ -7,10 +7,21 @@
 // -----------------------------------------------------------------------
 #endregion
 
+using System.Threading.Tasks;
+using Eventuate.EventLogs;
+
 namespace Eventuate.Cassandra
 {
     internal class CassandraIndexStore
     {
-        
+        public CassandraIndexStore(Cassandra cassandra, string logId)
+        {
+            throw new System.NotImplementedException();
+        }
+
+        public async Task<EventLogClock> ReadEventLogClockSnapshot()
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }

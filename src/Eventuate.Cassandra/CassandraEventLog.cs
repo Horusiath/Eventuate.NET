@@ -10,7 +10,11 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Akka.Actor;
+using Akka.Dispatch;
+using Akka.Event;
 using Eventuate.EventLogs;
 using Eventuate.Snapshots;
 
@@ -62,6 +66,14 @@ namespace Eventuate.Cassandra
     /// <seealso cref="DurableEvent"/>
     public sealed class CassandraEventLog : EventLog<CassandraEventLogSettings, CassandraEventLogState>
     {
+        private static readonly Regex validCassandraIdentifier = new Regex("^[a-zA-Z0-9_]+$", RegexOptions.Compiled);
+
+        /// <summary>
+        /// Check whether the specified <paramref name="logId"/> is valid for Cassandra
+        /// table, column and/or keyspace name usage.
+        /// </summary>
+        private static bool IsValidEventLogId(string logId) => validCassandraIdentifier.IsMatch(logId);
+        
         /// <summary>
         /// Creates a <see cref="CassandraEventLog"/> configuration object.
         /// </summary>
@@ -78,6 +90,16 @@ namespace Eventuate.Cassandra
             return Akka.Actor.Props.Create(() => new CircuitBreaker(logProps, batching));
         }
         
+        private Cassandra cassandra;
+        private CassandraReplicationProgressStore progressStore;
+        private CassandraDeletedToStore deletedToStore;
+        private CassandraEventLogStore eventLogStore;
+        private CassandraIndexStore indexStore;
+
+        private IActorRef index = null;
+        private long indexSeqNr = 0L;
+        private long updateCount = 0L;
+
         /// <summary>
         /// Creates a new instance of <see cref="CassandraEventLog"/>.
         /// </summary>
@@ -88,9 +110,39 @@ namespace Eventuate.Cassandra
         /// </param>
         public CassandraEventLog(string id, bool aggregateIndexing) : base(id)
         {
+            if (!IsValidEventLogId(id))
+                throw new ArgumentException($"invalid id '{id}' specified - Cassandra allows alphanumeric and underscore characters only");
+
+            this.cassandra = Cassandra.Get(Context.System);
+            this.Settings = this.cassandra.Settings;
+
         }
 
+        protected override void PreStart()
+        {
+            ActorTaskScheduler.RunTask(async () =>
+            {
+                await cassandra.Initialized;
+
+                await cassandra.CreateEventTable(Id);
+                await cassandra.CreateAggregateEventTable(Id);
+
+                this.progressStore = CreateReplicationProgressStore(cassandra, Id);
+                this.deletedToStore = CreateDeletedToStore(cassandra, Id);
+                this.eventLogStore = CreateEventLogStore(cassandra, Id);
+                this.indexStore = CreateIndexStore(cassandra, Id);
+            });
+            
+            base.PreStart();
+        }
+
+        private static CassandraIndexStore CreateIndexStore(Cassandra c, string id) => new CassandraIndexStore(c, id);
+        private static CassandraEventLogStore CreateEventLogStore(Cassandra c, string id) => new CassandraEventLogStore(c, id);
+        private static CassandraDeletedToStore CreateDeletedToStore(Cassandra c, string id) => new CassandraDeletedToStore(c, id);
+        private static CassandraReplicationProgressStore CreateReplicationProgressStore(Cassandra c, string id) => new CassandraReplicationProgressStore(c, id);
+
         protected override ISnapshotStore SnapshotStore { get; }
+        
         public override async Task WriteReplicationProgresses(ImmutableDictionary<string, long> progresses)
         {
             throw new NotImplementedException();
@@ -137,6 +189,18 @@ namespace Eventuate.Cassandra
         }
 
         public override async Task<CassandraEventLogState> RecoverState()
+        {
+            var dmtask = deletedToStore.ReadDeletedTo();
+            var sctask = indexStore.ReadEventLogClockSnapshot();
+
+            await Task.WhenAll(dmtask, sctask);
+
+            var rc = RecoverEventLogClock(sctask.Result);
+            
+            return new CassandraEventLogState(rc, sctask.Result, new DeletionMetadata(dmtask.Result, ImmutableHashSet<string>.Empty));
+        }
+
+        private EventLogClock RecoverEventLogClock(EventLogClock clock)
         {
             throw new NotImplementedException();
         }

@@ -11,6 +11,9 @@ namespace Eventuate.Cassandra
 {
     internal sealed class CassandraReplicationProgressStore
     {
-        
+        public CassandraReplicationProgressStore(Cassandra cassandra, string logId)
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }

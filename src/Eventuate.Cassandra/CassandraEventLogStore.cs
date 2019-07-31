@@ -11,6 +11,9 @@ namespace Eventuate.Cassandra
 {
     internal class CassandraEventLogStore
     {
-        
+        public CassandraEventLogStore(Cassandra cassandra, string id)
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }
