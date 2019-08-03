@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Text;
 using System.Threading.Tasks;
+using Akka.Actor;
 
 namespace Eventuate.EventLogs
 {
@@ -187,7 +188,7 @@ namespace Eventuate.EventLogs
         /// themselves against request overload.
         /// </summary>
         /// <seealso cref="IEventLogSettings"/>
-        Task Write(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock);
+        Task Write(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock, IActorContext context);
 
         /// <summary>
         /// Asynchronously writes metadata for a <see cref="EventsourcingProtocol.Delete"/> request. This marks events up to
@@ -199,7 +200,7 @@ namespace Eventuate.EventLogs
         /// <summary>
         /// Asynchronously writes the current snapshot of the event log clock.
         /// </summary>
-        Task WriteEventLogClockSnapshot(EventLogClock clock);
+        Task WriteEventLogClockSnapshot(EventLogClock clock, IActorContext context);
 
         /// <summary>
         /// Instructs the log to asynchronously and physically delete events up to <paramref name="toSequenceNr"/>. This operation completes when

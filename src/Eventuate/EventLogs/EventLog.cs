@@ -419,7 +419,7 @@ namespace Eventuate.EventLogs
             void OnAdjustEventLogClock()
             {
                 clock = clock.AdjustSequenceNrToProcessTime(Id);
-                WriteEventLogClockSnapshot(clock).PipeTo(Sender,
+                WriteEventLogClockSnapshot(clock, Context).PipeTo(Sender,
                     success: () => new AdjustEventLogClockSuccess(clock),
                     failure: cause => new AdjustEventLogClockFailure(cause));
             }
@@ -549,7 +549,7 @@ namespace Eventuate.EventLogs
 
         private void ProcessWrites(params Write[] writes)
         {
-            WriteBatches(writes, (events, clock) => PrepareEvents(events, clock, DateTime.UtcNow)).PipeTo(Self, Sender,
+            WriteBatches(writes, (events, clock) => PrepareEvents(events, clock, DateTime.UtcNow), Context).PipeTo(Self, Sender,
                 success: tuple => new WriteBatchesSuccess(tuple.Item1, tuple.Item2, tuple.Item3),
                 failure: cause => new WriteBatchesFailure(cause, writes));
         }
@@ -562,7 +562,7 @@ namespace Eventuate.EventLogs
                     this.replicaVersionVectors = replicaVersionVectors.SetItem(id, m.CurrentVersionVector);
                 }
 
-            WriteBatches(writes, (events, clock) => PrepareReplicatedEvents(events.ToArray(), clock, DateTime.UtcNow)).PipeTo(Self, Sender,
+            WriteBatches(writes, (events, clock) => PrepareReplicatedEvents(events.ToArray(), clock, DateTime.UtcNow), Context).PipeTo(Self, Sender,
                 success: tuple => new WriteReplicatedBatchesSuccess(writes, tuple.Item2, tuple.Item3),
                 failure: cause => new WriteReplicatedBatchesFailure(cause, writes));
         }
@@ -591,15 +591,15 @@ namespace Eventuate.EventLogs
 
         public abstract Task<BatchReadResult> ReplicationRead(long fromSequenceNr, long toSequenceNr, int max, int scanLimit, Func<DurableEvent, bool> filter);
 
-        public abstract Task Write(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock);
+        public abstract Task Write(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock, IActorContext context);
 
         public abstract Task WriteDeletionMetadata(DeletionMetadata metadata);
 
-        public abstract Task WriteEventLogClockSnapshot(EventLogClock clock);
+        public abstract Task WriteEventLogClockSnapshot(EventLogClock clock, IActorContext context);
 
         public abstract Task WriteReplicationProgresses(ImmutableDictionary<string, long> progresses);
 
-        private async Task<(IEnumerable<T>, IEnumerable<DurableEvent>, EventLogClock)> WriteBatches<T>(IReadOnlyCollection<T> writes, Func<IEnumerable<DurableEvent>, EventLogClock, (IEnumerable<DurableEvent>, EventLogClock)> prepare)
+        private async Task<(IEnumerable<T>, IEnumerable<DurableEvent>, EventLogClock)> WriteBatches<T>(IReadOnlyCollection<T> writes, Func<IEnumerable<DurableEvent>, EventLogClock, (IEnumerable<DurableEvent>, EventLogClock)> prepare, IActorContext context)
             where T : IUpdateableEventBatch<T>
         {
             var totalSize = 0;
@@ -608,7 +608,7 @@ namespace Eventuate.EventLogs
             var (updatedWrites, clock2) = PrepareBatches(writes, clock1, prepare);
             var updatedEvents = updatedWrites.SelectMany(w => w.Events).ToImmutableArray();
 
-            await Write(updatedEvents, partition, clock2);
+            await Write(updatedEvents, partition, clock2, context);
 
             return (updatedWrites, updatedEvents, clock2);
         }

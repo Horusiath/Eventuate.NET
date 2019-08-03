@@ -180,81 +180,81 @@ namespace Eventuate.Cassandra
         public override async Task<BatchReadResult> ReplicationRead(long fromSequenceNr, long toSequenceNr, int max, int scanLimit, Func<DurableEvent, bool> filter) => 
             await eventLogStore.ReadAsync(fromSequenceNr, toSequenceNr, max, QueryOptions.DefaultPageSize, scanLimit, filter);
 
-        public override async Task Write(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock) => 
-            await WriteRetry(events, partition, clock);
+        public override async Task Write(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock, IActorContext context) => 
+            await WriteRetry(events, partition, clock, context);
 
         public override async Task WriteDeletionMetadata(DeletionMetadata metadata) => 
             await deletedToStore.WriteDeletedTo(metadata.ToSequenceNr);
 
-        public override async Task WriteEventLogClockSnapshot(EventLogClock clock)
+        public override async Task WriteEventLogClockSnapshot(EventLogClock clock, IActorContext context)
         {
-            await UpdateIndex(clock);
+            await UpdateIndex(clock, context);
             await indexStore.WriteEventLogClockSnapshot(clock);
         }
 
         /**
          * @see [[http://rbmhtechnology.github.io/eventuate/reference/event-sourcing.html#failure-handling Failure handling]]
          */
-        private async Task WriteRetry(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock)
+        private async Task WriteRetry(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock, IActorContext context)
         {
             for (int num = 0; num < cassandra.Settings.WriteRetryMax; num++)
             {
                 try
                 {
-                    await WriteBatch(events, partition, clock);
-                    Context.Parent.Tell(ServiceEvent.Normal(Id));
+                    await WriteBatch(events, partition, clock, context);
+                    context.Parent.Tell(ServiceEvent.Normal(Id));
                 }
                 catch (TimeoutException e)
                 {
-                    Context.Parent.Tell(ServiceEvent.Failed(Id, num, e));
+                    context.Parent.Tell(ServiceEvent.Failed(Id, num, e));
                     Logger.Error(e, "write attempt {0} failed: timeout after {1} - retry now", num,
                         cassandra.Settings.WriteTimeout);
                 }
                 catch (WriteTimeoutException e)
                 {
-                    Context.Parent.Tell(ServiceEvent.Failed(Id, num, e));
+                    context.Parent.Tell(ServiceEvent.Failed(Id, num, e));
                     Logger.Error(e, "write attempt {0} failed: retry now", num);
                 }
                 catch (QueryExecutionException e)
                 {
-                    Context.Parent.Tell(ServiceEvent.Failed(Id, num, e));
+                    context.Parent.Tell(ServiceEvent.Failed(Id, num, e));
                     Logger.Error(e, "write attempt {0} failed: retry in {1}", num, cassandra.Settings.WriteTimeout);
                     await Task.Delay(cassandra.Settings.WriteTimeout);
                 }
                 catch (NoHostAvailableException e)
                 {
-                    Context.Parent.Tell(ServiceEvent.Failed(Id, num, e));
+                    context.Parent.Tell(ServiceEvent.Failed(Id, num, e));
                     Logger.Error(e, "write attempt {0} failed: retry in {1}", num, cassandra.Settings.WriteTimeout);
                     await Task.Delay(cassandra.Settings.WriteTimeout);
                 }
                 catch (Exception e)
                 {
                     Logger.Error(e, "write attempt {0} failed - stop self", num);
-                    Context.Stop(Self);
+                    context.Stop(Self);
                     throw;
                 }
             }
         }
 
-        private async Task WriteBatch(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock)
+        private async Task WriteBatch(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock, IActorContext context)
         {
             await eventLogStore.WriteAsync(events, partition);
             updateCount += events.Count;
             if (updateCount >= cassandra.Settings.IndexUpdateLimit)
             {
-                await UpdateIndex(clock);
+                await UpdateIndex(clock, context);
                 updateCount = 0L;
             }
         }
 
-        private async Task<EventLogClock> UpdateIndex(EventLogClock clock)
+        private async Task<EventLogClock> UpdateIndex(EventLogClock clock, IActorContext context)
         {
             if (aggregateIndexing)
             {
                 // asynchronously update the index
                 var promise = new TaskCompletionSource<CassandraIndex.UpdateIndexSuccess>(TaskCreationOptions.RunContinuationsAsynchronously);
                 index.Tell(new CassandraIndex.UpdateIndex(null, clock.SequenceNr, promise));
-                await promise.Task.PipeTo(Self);
+                await promise.Task.PipeTo(context.Self);
                 return (await promise.Task).Clock;
             }
             else
@@ -264,7 +264,7 @@ namespace Eventuate.Cassandra
             }
         }
 
-        protected sealed override void Unhandled(object message)
+        protected override void Unhandled(object message)
         {
             if (message is CassandraIndex.UpdateIndexSuccess u)
             {

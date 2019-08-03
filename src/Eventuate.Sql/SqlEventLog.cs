@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Threading.Tasks;
+using Akka.Actor;
 using Eventuate.EventLogs;
 using Eventuate.Snapshots;
 
@@ -44,7 +45,7 @@ namespace Eventuate.Sql
             throw new NotImplementedException();
         }
 
-        public override Task Write(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock)
+        public override Task Write(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock, IActorContext context)
         {
             throw new NotImplementedException();
         }
@@ -54,7 +55,7 @@ namespace Eventuate.Sql
             throw new NotImplementedException();
         }
 
-        public override Task WriteEventLogClockSnapshot(EventLogClock clock)
+        public override Task WriteEventLogClockSnapshot(EventLogClock clock, IActorContext context)
         {
             throw new NotImplementedException();
         }

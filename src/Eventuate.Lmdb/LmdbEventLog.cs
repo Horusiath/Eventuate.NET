@@ -176,7 +176,7 @@ namespace Eventuate.Lmdb
             return WriteInternal(ref key, progresses, this.replicationProgressSerializer);
         }
 
-        public override Task Write(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock)
+        public override Task Write(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock, IActorContext context)
         {
             var txn = this.env.BeginTransaction();
             try
@@ -218,7 +218,7 @@ namespace Eventuate.Lmdb
             return WriteInternal(ref key, metadata, this.deletionMetadataSerializer);
         }
 
-        public override Task WriteEventLogClockSnapshot(EventLogClock clock)
+        public override Task WriteEventLogClockSnapshot(EventLogClock clock, IActorContext context)
         {
             var key = new DirectBuffer(this.clockKey);
             return WriteInternal(ref key, clock, this.clockSerializer);
