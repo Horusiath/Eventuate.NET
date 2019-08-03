@@ -14,6 +14,8 @@ using System.Text;
 namespace Eventuate
 {
     public interface ISerializable { }
+    
+    public interface ICrdtFormat { }
 
     public interface IPartiallyComparable<T>
     {

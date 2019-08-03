@@ -27,7 +27,7 @@ namespace Eventuate.Crdt
 
         public Counter Update(long delta) => new Counter(Value + delta);
 
-        public readonly struct UpdateOp : ISerializable
+        public readonly struct UpdateOp : ICrdtFormat
         {
             public UpdateOp(object delta)
             {

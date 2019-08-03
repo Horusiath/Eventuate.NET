@@ -25,7 +25,7 @@ namespace Eventuate.Lmdb
         private readonly Database db;
         private readonly Serializer snapshotSerializer;
 
-        public LmdbSnapshotStore(Serialization serialization, LMDBEnvironment env, Database db)
+        public LmdbSnapshotStore(Akka.Serialization.Serialization serialization, LMDBEnvironment env, Database db)
         {
             this.env = env;
             this.db = db;

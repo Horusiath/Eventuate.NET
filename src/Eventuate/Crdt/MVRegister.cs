@@ -22,7 +22,7 @@ namespace Eventuate.Crdt
     /// assigning a <see cref="Versioned{T}"/> value with a vector timestamp that is greater than those of the currently assigned
     /// <see cref="Versioned{T}"/> values.
     /// </summary>
-    public sealed class MVRegister<T> : ISerializable
+    public sealed class MVRegister<T> : ICrdtFormat
     {
         public static readonly MVRegister<T> Empty = new MVRegister<T>();
 
@@ -100,7 +100,7 @@ namespace Eventuate.Crdt
     /// <summary>
     /// Persistent assign operation used for <see cref="MVRegister{T}"/> and <see cref="LWWRegister{T}"/>.
     /// </summary>
-    public readonly struct AssignOp : ISerializable
+    public readonly struct AssignOp : ICrdtFormat
     {
         public AssignOp(object value)
         {

@@ -33,7 +33,7 @@ namespace Eventuate.Snapshots.Filesystem
 
         public string RootDirectory { get; set; }
 
-        public Serialization Serialization { get; set; }
+        public Akka.Serialization.Serialization Serialization { get; set; }
 
         public MessageDispatcher WriteDispatcher { get; set; }
 

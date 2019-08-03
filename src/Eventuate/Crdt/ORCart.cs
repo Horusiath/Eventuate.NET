@@ -14,10 +14,11 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using Akka.Actor;
+using Eventuate.Serialization;
 
 namespace Eventuate.Crdt
 {
-    public readonly struct ORCartEntry : ISerializable
+    public readonly struct ORCartEntry : ICrdtFormat
     {
         public ORCartEntry(object key, int quantity)
         {
@@ -33,6 +34,7 @@ namespace Eventuate.Crdt
     /// <see cref="ORCart{T}"/> entry.
     /// </summary>
     /// <typeparam name="T"></typeparam>
+    [ClassTag(101)]
     public readonly struct ORCartEntry<T> : IEquatable<ORCartEntry<T>>
     {
         public ORCartEntry(T key, int quantity)
@@ -72,10 +74,10 @@ namespace Eventuate.Crdt
     /// type <see cref="ORCartEntry{T}"/> and are uniquely identified with vector timestamps.
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public sealed class ORCart<T> : ISerializable
+    public sealed class ORCart<T> : ICrdtFormat
     {
         public static readonly ORCart<T> Empty = new ORCart<T>();
-        private readonly ORSet<ORCartEntry<T>> inner;
+        internal readonly ORSet<ORCartEntry<T>> inner;
 
         public ORCart() : this(ORSet<ORCartEntry<T>>.Empty) { }
 

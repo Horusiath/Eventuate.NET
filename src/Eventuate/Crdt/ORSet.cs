@@ -21,7 +21,7 @@ namespace Eventuate.Crdt
     /// Operation-based OR-Set CRDT. <see cref="Versioned{T}"/> entries are uniquely identified with vector timestamps.
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public sealed class ORSet<T> : ISerializable
+    public sealed class ORSet<T> : ICrdtFormat
     {
         public static readonly ORSet<T> Empty = new ORSet<T>();
 
@@ -147,7 +147,7 @@ namespace Eventuate.Crdt
         public Task<ImmutableHashSet<T>> Remove(string id, T entry) => Update(id, new RemoveOp(entry));
     }
 
-    public readonly struct AddOp : ISerializable
+    public readonly struct AddOp : ICrdtFormat
     {
         public AddOp(object entry)
         {
@@ -160,7 +160,7 @@ namespace Eventuate.Crdt
     /// <summary>
     /// Persistent remove operation used for <see cref="ORSet{T}"/> and <see cref="ORCart{T}"/>.
     /// </summary>
-    public readonly struct RemoveOp : ISerializable
+    public readonly struct RemoveOp : ICrdtFormat
     {
         public RemoveOp(object entry, ImmutableHashSet<VectorTime> timestamps = null)
         {

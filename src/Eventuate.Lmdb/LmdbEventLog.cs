@@ -74,7 +74,7 @@ namespace Eventuate.Lmdb
         private readonly string prefix;
         private readonly LMDBEnvironment env;
         private readonly Database db;
-        private readonly Serialization serialization;
+        private readonly Akka.Serialization.Serialization serialization;
         
         private readonly byte[] replicationProgressesKey;
         private readonly byte[] deletionMetadataKey;

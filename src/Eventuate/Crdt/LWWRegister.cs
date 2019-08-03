@@ -30,10 +30,10 @@ namespace Eventuate.Crdt
     /// Note that this relies on synchronized system clocks. <see cref="LWWRegister{T}"/> should only be used when the choice of
     /// value is not important for concurrent updates occurring within the clock skew.
     /// </summary>
-    public sealed class LWWRegister<T> : ISerializable
+    public sealed class LWWRegister<T> : ICrdtFormat
     {
         public static readonly LWWRegister<T> Empty = new LWWRegister<T>();
-        private readonly MVRegister<T> inner;
+        internal readonly MVRegister<T> inner;
 
         public LWWRegister() : this(MVRegister<T>.Empty)
         {
