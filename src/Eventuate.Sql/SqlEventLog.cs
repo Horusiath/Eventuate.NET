@@ -44,7 +44,7 @@ namespace Eventuate.Sql
             throw new NotImplementedException();
         }
 
-        public override Task Write(IEnumerable<DurableEvent> events, long partition, EventLogClock clock)
+        public override Task Write(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock)
         {
             throw new NotImplementedException();
         }

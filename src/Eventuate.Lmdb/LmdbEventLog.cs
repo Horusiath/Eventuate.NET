@@ -176,7 +176,7 @@ namespace Eventuate.Lmdb
             return WriteInternal(ref key, progresses, this.replicationProgressSerializer);
         }
 
-        public override Task Write(IEnumerable<DurableEvent> events, long partition, EventLogClock clock)
+        public override Task Write(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock)
         {
             var txn = this.env.BeginTransaction();
             try

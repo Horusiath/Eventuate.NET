@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Dispatch;
 using Akka.Event;
+using Cassandra;
 using Eventuate.EventLogs;
 using Eventuate.Snapshots;
 
@@ -83,9 +84,9 @@ namespace Eventuate.Cassandra
         /// `true` if aggregates should be indexed (recommended)
         /// Turn this off only if you don't use aggregate IDs on this event log!
         /// </param>
-        public static Akka.Actor.Props Props(string logId, bool batching = true, bool aggregateIndexing = true)
+        public static Akka.Actor.Props Props(string logId, ISnapshotStore snapshotStore, bool batching = true, bool aggregateIndexing = true)
         {
-            var logProps = Akka.Actor.Props.Create(() => new CassandraEventLog(logId, aggregateIndexing))
+            var logProps = Akka.Actor.Props.Create(() => new CassandraEventLog(logId, aggregateIndexing, snapshotStore))
                 .WithDispatcher("eventuate.log.dispatchers.write-dispatcher");
             return Akka.Actor.Props.Create(() => new CircuitBreaker(logProps, batching));
         }
@@ -99,6 +100,7 @@ namespace Eventuate.Cassandra
         private IActorRef index = null;
         private long indexSeqNr = 0L;
         private long updateCount = 0L;
+        private readonly bool aggregateIndexing;
 
         /// <summary>
         /// Creates a new instance of <see cref="CassandraEventLog"/>.
@@ -108,14 +110,16 @@ namespace Eventuate.Cassandra
         /// `true` if the event log shall process aggregate indexing (recommended).
         /// Turn this off only if you don't use aggregate IDs on this event log!
         /// </param>
-        public CassandraEventLog(string id, bool aggregateIndexing) : base(id)
+        /// <param name="snapshotStore">Store used for snapshotting.</param>
+        public CassandraEventLog(string id, bool aggregateIndexing, ISnapshotStore snapshotStore) : base(id)
         {
             if (!IsValidEventLogId(id))
                 throw new ArgumentException($"invalid id '{id}' specified - Cassandra allows alphanumeric and underscore characters only");
-
+            
+            this.aggregateIndexing = aggregateIndexing;
             this.cassandra = Cassandra.Get(Context.System);
             this.Settings = this.cassandra.Settings;
-
+            this.SnapshotStore = snapshotStore;
         }
 
         protected override void PreStart()
@@ -143,50 +147,137 @@ namespace Eventuate.Cassandra
 
         protected override ISnapshotStore SnapshotStore { get; }
         
-        public override async Task WriteReplicationProgresses(ImmutableDictionary<string, long> progresses)
-        {
-            throw new NotImplementedException();
-        }
+        public override async Task WriteReplicationProgresses(ImmutableDictionary<string, long> progresses) => 
+            await progressStore.WriteReplicationProgressesAsync(progresses);
 
-        public override async Task<BatchReadResult> Read(long fromSequenceNr, long toSequenceNr, int max)
-        {
-            throw new NotImplementedException();
-        }
+        public override async Task<BatchReadResult> Read(long fromSequenceNr, long toSequenceNr, int max) => 
+            await eventLogStore.ReadAsync(fromSequenceNr, toSequenceNr, max, max + 1, int.MaxValue, _ => true);
 
         public override async Task<BatchReadResult> Read(long fromSequenceNr, long toSequenceNr, int max, string aggregateId)
         {
-            throw new NotImplementedException();
+            return await CompositeReadAsync(fromSequenceNr, toSequenceNr, max, max + 1, aggregateId);
         }
 
-        public override async Task<BatchReadResult> ReplicationRead(long fromSequenceNr, long toSequenceNr, int max, int scanLimit, Func<DurableEvent, bool> filter)
+        private async Task<BatchReadResult> CompositeReadAsync(long fromSequenceNr,long toSequenceNr, int max, int fetchSize, string aggregateId)
         {
-            throw new NotImplementedException();
+            var enumerator = new CompositeEventEnumerator(indexStore, eventLogStore, aggregateId, fromSequenceNr, indexSeqNr, toSequenceNr, fetchSize);
+            var events = new List<DurableEvent>();
+
+            var lastSequenceNr = fromSequenceNr - 1L;
+            var scanned = 0;
+
+            while (scanned < max && await enumerator.MoveNextAsync())
+            {
+                var e = enumerator.Current;
+                events.Add(e);
+                scanned++;
+                lastSequenceNr = e.LocalSequenceNr;
+            }
+            
+            return new BatchReadResult(events, lastSequenceNr);
         }
 
-        public override async Task Write(IEnumerable<DurableEvent> events, long partition, EventLogClock clock)
-        {
-            throw new NotImplementedException();
-        }
+        public override async Task<BatchReadResult> ReplicationRead(long fromSequenceNr, long toSequenceNr, int max, int scanLimit, Func<DurableEvent, bool> filter) => 
+            await eventLogStore.ReadAsync(fromSequenceNr, toSequenceNr, max, QueryOptions.DefaultPageSize, scanLimit, filter);
 
-        public override async Task WriteDeletionMetadata(DeletionMetadata metadata)
-        {
-            throw new NotImplementedException();
-        }
+        public override async Task Write(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock) => 
+            await WriteRetry(events, partition, clock);
+
+        public override async Task WriteDeletionMetadata(DeletionMetadata metadata) => 
+            await deletedToStore.WriteDeletedTo(metadata.ToSequenceNr);
 
         public override async Task WriteEventLogClockSnapshot(EventLogClock clock)
         {
-            throw new NotImplementedException();
+            await UpdateIndex(clock);
+            await indexStore.WriteEventLogClockSnapshot(clock);
         }
 
-        public override async Task<long> ReadReplicationProgress(string logId)
+        /**
+         * @see [[http://rbmhtechnology.github.io/eventuate/reference/event-sourcing.html#failure-handling Failure handling]]
+         */
+        private async Task WriteRetry(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock)
         {
-            throw new NotImplementedException();
+            for (int num = 0; num < cassandra.Settings.WriteRetryMax; num++)
+            {
+                try
+                {
+                    await WriteBatch(events, partition, clock);
+                    Context.Parent.Tell(ServiceEvent.Normal(Id));
+                }
+                catch (TimeoutException e)
+                {
+                    Context.Parent.Tell(ServiceEvent.Failed(Id, num, e));
+                    Logger.Error(e, "write attempt {0} failed: timeout after {1} - retry now", num,
+                        cassandra.Settings.WriteTimeout);
+                }
+                catch (WriteTimeoutException e)
+                {
+                    Context.Parent.Tell(ServiceEvent.Failed(Id, num, e));
+                    Logger.Error(e, "write attempt {0} failed: retry now", num);
+                }
+                catch (QueryExecutionException e)
+                {
+                    Context.Parent.Tell(ServiceEvent.Failed(Id, num, e));
+                    Logger.Error(e, "write attempt {0} failed: retry in {1}", num, cassandra.Settings.WriteTimeout);
+                    await Task.Delay(cassandra.Settings.WriteTimeout);
+                }
+                catch (NoHostAvailableException e)
+                {
+                    Context.Parent.Tell(ServiceEvent.Failed(Id, num, e));
+                    Logger.Error(e, "write attempt {0} failed: retry in {1}", num, cassandra.Settings.WriteTimeout);
+                    await Task.Delay(cassandra.Settings.WriteTimeout);
+                }
+                catch (Exception e)
+                {
+                    Logger.Error(e, "write attempt {0} failed - stop self", num);
+                    Context.Stop(Self);
+                    throw;
+                }
+            }
         }
 
-        public override async Task<ImmutableDictionary<string, long>> ReadReplicationProgresses()
+        private async Task WriteBatch(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock)
         {
-            throw new NotImplementedException();
+            await eventLogStore.WriteAsync(events, partition);
+            updateCount += events.Count;
+            if (updateCount >= cassandra.Settings.IndexUpdateLimit)
+            {
+                await UpdateIndex(clock);
+                updateCount = 0L;
+            }
         }
+
+        private async Task<EventLogClock> UpdateIndex(EventLogClock clock)
+        {
+            if (aggregateIndexing)
+            {
+                // asynchronously update the index
+                var promise = new TaskCompletionSource<CassandraIndex.UpdateIndexSuccess>(TaskCreationOptions.RunContinuationsAsynchronously);
+                index.Tell(new CassandraIndex.UpdateIndex(null, clock.SequenceNr, promise));
+                await promise.Task.PipeTo(Self);
+                return (await promise.Task).Clock;
+            }
+            else
+            {
+                // otherwise update the event log clock snapshot only
+                return await indexStore.WriteEventLogClockSnapshot(clock);
+            }
+        }
+
+        protected sealed override void Unhandled(object message)
+        {
+            if (message is CassandraIndex.UpdateIndexSuccess u)
+            {
+                indexSeqNr = u.Clock.SequenceNr;    
+            }
+            else base.Unhandled(message);
+        }
+
+        public override async Task<long> ReadReplicationProgress(string logId) => 
+            await progressStore.ReadReplicationProgressAsync(logId);
+
+        public override async Task<ImmutableDictionary<string, long>> ReadReplicationProgresses() => 
+            await progressStore.ReadReplicationProgressesAsync();
 
         public override async Task<CassandraEventLogState> RecoverState()
         {
@@ -195,14 +286,91 @@ namespace Eventuate.Cassandra
 
             await Task.WhenAll(dmtask, sctask);
 
-            var rc = RecoverEventLogClock(sctask.Result);
+            var rc = await RecoverEventLogClock(sctask.Result);
             
             return new CassandraEventLogState(rc, sctask.Result, new DeletionMetadata(dmtask.Result, ImmutableHashSet<string>.Empty));
         }
 
-        private EventLogClock RecoverEventLogClock(EventLogClock clock)
+        public override void RecoverStateSuccess(CassandraEventLogState state)
         {
-            throw new NotImplementedException();
+            // if we are not using `aggregateIndexing` set the index' clock to the empty clock
+            // so the index will replay the whole event log in case it is requested
+            // (which shouldn't happen in the first place if you don't want to use `aggregateIndexing`)
+
+            var indexClock = this.aggregateIndexing ? state.EventLogClockSnapshot : EventLogClock.Empty;
+            this.index = CreateIndex(cassandra, indexClock, indexStore, eventLogStore, Id);
+            this.indexSeqNr = indexClock.SequenceNr;
+            this.updateCount = state.EventLogClock.SequenceNr - indexSeqNr;
+            Context.Parent.Tell(ServiceEvent.Initialized(Id));
+        }
+
+        private IActorRef CreateIndex(Cassandra c, EventLogClock clock, CassandraIndexStore indexStore, CassandraEventLogStore logStore, string id) => 
+            Context.ActorOf(CassandraIndex.Props(c, clock, logStore, indexStore, id));
+
+        private async Task<EventLogClock> RecoverEventLogClock(EventLogClock clock)
+        {
+            var enumerator = eventLogStore.EventIterator(clock.SequenceNr + 1L, long.MaxValue, cassandra.Settings.IndexUpdateLimit);
+            while (await enumerator.MoveNextAsync())
+            {
+                clock = clock.Update(enumerator.Current);
+            }
+
+            return clock;
+        }
+
+        sealed class CompositeEventEnumerator : IAsyncEnumerator<DurableEvent>
+        {
+            private readonly CassandraEventLogStore logStore;
+            private readonly string aggregateId;
+            private readonly long indexSequenceNr;
+            private readonly long toSequenceNr;
+            private long last;
+            private bool idxr = true;
+            private readonly int fetchSize;
+            private IAsyncEnumerator<DurableEvent> enumerator;
+            private Func<DurableEvent, bool> filter;
+
+            public CompositeEventEnumerator(CassandraIndexStore indexStore, CassandraEventLogStore eventLogStore, string aggregateId, long fromSequenceNr, long indexSequenceNr, long toSequenceNr, int fetchSize)
+            {
+                logStore = eventLogStore;
+                this.aggregateId = aggregateId;
+                this.indexSequenceNr = indexSequenceNr;
+                this.toSequenceNr = toSequenceNr;
+                this.fetchSize = fetchSize;
+                this.last = fromSequenceNr - 1L;
+                this.filter = _ => true;
+                this.enumerator = indexStore.AggregateEventIterator(aggregateId, fromSequenceNr, toSequenceNr, fetchSize);
+            }
+
+            public async ValueTask<bool> MoveNextAsync()
+            {
+                while (true)
+                {
+                    if (idxr)
+                    {
+                        if (await enumerator.MoveNextAsync() && filter(enumerator.Current))
+                        {
+                            last = enumerator.Current.LocalSequenceNr;
+                            return true;
+                        }
+                        else
+                        {
+                            idxr = false;
+                            enumerator = logStore.EventIterator(Math.Max(indexSequenceNr, last) + 1L, toSequenceNr,
+                                fetchSize);
+                            filter = e => e.DestinationAggregateIds.Contains(aggregateId);
+                        }
+                    }
+                    else if (await enumerator.MoveNextAsync() && filter(enumerator.Current))
+                    {
+                        last = enumerator.Current.LocalSequenceNr;
+                        return true;
+                    }
+                    else return false;
+                }
+            }
+
+            public DurableEvent Current => enumerator.Current;
         }
     }
 }

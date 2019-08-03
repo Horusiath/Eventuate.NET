@@ -37,7 +37,7 @@ namespace Eventuate.Cassandra
 
         public async Task<BatchReadResult> ReadAsync(long fromSequenceNr, long toSequenceNr, int max, int fetchSize, int scanLimit, Func<DurableEvent, bool> filter)
         {
-            var enumerator = new EventEnumerator(cassandra, await preparedReadEventsStatement, fromSequenceNr, toSequenceNr, fetchSize);
+            var enumerator = EventIterator(fromSequenceNr, toSequenceNr, fetchSize);
             var events = new List<DurableEvent>();
             var lastSequenceNr = fromSequenceNr - 1L;
             var scanned = 0;
@@ -71,11 +71,14 @@ namespace Eventuate.Cassandra
 
             await cassandra.Session.ExecuteAsync(batch);
         }
+        
+        internal EventEnumerator EventIterator(long fromSequenceNr, long toSequenceNr, int fetchSize) =>
+            new EventEnumerator(cassandra, preparedReadEventsStatement, fromSequenceNr, toSequenceNr, fetchSize);
 
-        sealed class EventEnumerator : IAsyncEnumerator<DurableEvent>
+        internal sealed class EventEnumerator : IAsyncEnumerator<DurableEvent>
         {
             private readonly Cassandra cassandra;
-            private readonly PreparedStatement preparedReadEventsStatement;
+            private readonly Task<PreparedStatement> preparedReadEventsStatement;
             private readonly long toSequenceNr;
             private readonly long partitionSize;
 
@@ -85,7 +88,7 @@ namespace Eventuate.Cassandra
             private readonly int fetchSize;
             private bool shouldRead;
 
-            public EventEnumerator(Cassandra cassandra, PreparedStatement preparedReadEventsStatement, long fromSequenceNr, long toSequenceNr, int fetchSize)
+            public EventEnumerator(Cassandra cassandra, Task<PreparedStatement> preparedReadEventsStatement, long fromSequenceNr, long toSequenceNr, int fetchSize)
             {
                 this.cassandra = cassandra;
                 this.preparedReadEventsStatement = preparedReadEventsStatement;
@@ -141,7 +144,8 @@ namespace Eventuate.Cassandra
 
             private async Task<RowSet> ReadAsync(long upperSequenceNr)
             {
-                return await cassandra.Session.ExecuteAsync(preparedReadEventsStatement
+                var stmt = await preparedReadEventsStatement;
+                return await cassandra.Session.ExecuteAsync(stmt
                     .Bind(currentPartition, currentSequenceNr, upperSequenceNr)
                     .SetPageSize(fetchSize));
             }

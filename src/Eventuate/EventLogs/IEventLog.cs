@@ -187,7 +187,7 @@ namespace Eventuate.EventLogs
         /// themselves against request overload.
         /// </summary>
         /// <seealso cref="IEventLogSettings"/>
-        Task Write(IEnumerable<DurableEvent> events, long partition, EventLogClock clock);
+        Task Write(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock);
 
         /// <summary>
         /// Asynchronously writes metadata for a <see cref="EventsourcingProtocol.Delete"/> request. This marks events up to

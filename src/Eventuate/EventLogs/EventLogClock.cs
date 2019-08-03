@@ -20,6 +20,8 @@ namespace Eventuate.EventLogs
     /// </summary>
     public sealed class EventLogClock : IEquatable<EventLogClock>
     {
+        public static EventLogClock Empty { get; } = new EventLogClock();
+        
         public EventLogClock(long sequenceNr = 0, VectorTime versionVector = null)
         {
             SequenceNr = sequenceNr;

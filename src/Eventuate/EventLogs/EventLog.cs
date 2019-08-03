@@ -591,7 +591,7 @@ namespace Eventuate.EventLogs
 
         public abstract Task<BatchReadResult> ReplicationRead(long fromSequenceNr, long toSequenceNr, int max, int scanLimit, Func<DurableEvent, bool> filter);
 
-        public abstract Task Write(IEnumerable<DurableEvent> events, long partition, EventLogClock clock);
+        public abstract Task Write(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock);
 
         public abstract Task WriteDeletionMetadata(DeletionMetadata metadata);
 
@@ -606,14 +606,14 @@ namespace Eventuate.EventLogs
             foreach (var w in writes) totalSize += w.Count;
             var (partition, clock1) = AdjustSequenceNr(totalSize, Settings.PartitionSize, clock);
             var (updatedWrites, clock2) = PrepareBatches(writes, clock1, prepare);
-            var updatedEvents = updatedWrites.SelectMany(w => w.Events);
+            var updatedEvents = updatedWrites.SelectMany(w => w.Events).ToImmutableArray();
 
             await Write(updatedEvents, partition, clock2);
 
             return (updatedWrites, updatedEvents, clock2);
         }
 
-        private (IEnumerable<T>, EventLogClock) PrepareBatches<T>(IReadOnlyCollection<T> writes, EventLogClock clock, Func<IEnumerable<DurableEvent>, EventLogClock, (IEnumerable<DurableEvent>, EventLogClock)> prepare) 
+        private (IReadOnlyCollection<T>, EventLogClock) PrepareBatches<T>(IReadOnlyCollection<T> writes, EventLogClock clock, Func<IEnumerable<DurableEvent>, EventLogClock, (IEnumerable<DurableEvent>, EventLogClock)> prepare) 
             where T : IUpdateableEventBatch<T>
         {
             var resultClock = clock;
