@@ -15,6 +15,7 @@ using Akka.Event;
 using Akka.IO;
 using Akka.Serialization;
 using Cassandra;
+using Eventuate.EventLogs;
 
 namespace Eventuate.Cassandra
 {
@@ -114,7 +115,8 @@ namespace Eventuate.Cassandra
         {
             this.system = system;
             Settings = new CassandraEventLogSettings(system.Settings.Config.GetConfig("eventuate.log"));
-            Serializer = system.Serialization;
+            this.ClockSerializer = system.Serialization.FindSerializerForType(typeof(EventLogClock));
+            this.EventSerializer = system.Serialization.FindSerializerForType(typeof(DurableEvent));
             this.logger = system.Log;
             this.statements = new CassandraStatements(Settings);
             system.RegisterOnTermination(() =>
@@ -171,11 +173,8 @@ namespace Eventuate.Cassandra
         /// </summary>
         public CassandraEventLogSettings Settings { get; }
         
-        /// <summary> 
-        /// Serializer used by the Cassandra storage backend. Closed when the <see cref="ActorSystem"/> of
-        /// this extension terminates.
-        /// </summary>
-        internal Serialization Serializer { get; }
+        internal Serializer ClockSerializer { get; }
+        internal Serializer EventSerializer { get; }
         
         public async Task CreateEventTable(string logId) => 
             await session.ExecuteAsync(new SimpleStatement(statements.CreateEventTableStatement(logId)));
@@ -248,5 +247,15 @@ namespace Eventuate.Cassandra
             var stmt = await session.PrepareAsync(statements.ReadDeletedToStatement);
             return stmt.SetConsistencyLevel(Settings.ReadConsistency);
         }
+
+        public EventLogClock ClockFromBytes(byte[] payload) => 
+            (EventLogClock) ClockSerializer.FromBinary(payload, typeof(EventLogClock));
+
+        public DurableEvent EventFromBytes(byte[] payload) => 
+            (DurableEvent) EventSerializer.FromBinary(payload, typeof(DurableEvent));
+
+        public byte[] ClockToBytes(EventLogClock clock) => ClockSerializer.ToBinary(clock);
+
+        public byte[] EventToBytes(DurableEvent e) => EventSerializer.ToBinary(e);
     }
 }
