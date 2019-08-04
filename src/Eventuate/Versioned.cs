@@ -324,7 +324,7 @@ namespace Eventuate
             }
         }
 
-        private readonly Node root;
+        internal readonly Node root;
         private readonly Func<TValue, TUpdate, TValue> projection;
 
         internal ConcurrentVersionsTree(Node root, string owner = null, Func<TValue, TUpdate, TValue> projection = null)

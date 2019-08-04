@@ -16,6 +16,10 @@ namespace Eventuate
     public interface ISerializable { }
     
     public interface ICrdtFormat { }
+    
+    public interface IReplicationFormat {}
+    
+    public interface IReplicationFilterFormat {}
 
     public interface IPartiallyComparable<T>
     {

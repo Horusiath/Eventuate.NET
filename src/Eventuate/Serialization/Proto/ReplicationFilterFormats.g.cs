@@ -26,7 +26,7 @@ namespace Eventuate.Serialization.Proto {
             "ZXJpYWxpemF0aW9uLlByb3RvGhNDb21tb25Gb3JtYXRzLnByb3RvIrQCChtS",
             "ZXBsaWNhdGlvbkZpbHRlclRyZWVGb3JtYXQSVQoIbm9kZVR5cGUYASABKA4y",
             "Qy5FdmVudHVhdGUuU2VyaWFsaXphdGlvbi5Qcm90by5SZXBsaWNhdGlvbkZp",
-            "bHRlclRyZWVGb3JtYXQuTm9kZVR5cGUSTAoIY2hpbGRyZW4YAiABKAsyOi5F",
+            "bHRlclRyZWVGb3JtYXQuTm9kZVR5cGUSTAoIY2hpbGRyZW4YAiADKAsyOi5F",
             "dmVudHVhdGUuU2VyaWFsaXphdGlvbi5Qcm90by5SZXBsaWNhdGlvbkZpbHRl",
             "clRyZWVGb3JtYXQSPAoGZmlsdGVyGAMgASgLMiwuRXZlbnR1YXRlLlNlcmlh",
             "bGl6YXRpb24uUHJvdG8uUGF5bG9hZEZvcm1hdCIyCghOb2RlVHlwZRILCgdV",
@@ -68,7 +68,7 @@ namespace Eventuate.Serialization.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     public ReplicationFilterTreeFormat(ReplicationFilterTreeFormat other) : this() {
       nodeType_ = other.nodeType_;
-      Children = other.children_ != null ? other.Children.Clone() : null;
+      children_ = other.children_.Clone();
       Filter = other.filter_ != null ? other.Filter.Clone() : null;
     }
 
@@ -90,16 +90,15 @@ namespace Eventuate.Serialization.Proto {
 
     /// <summary>Field number for the "children" field.</summary>
     public const int ChildrenFieldNumber = 2;
-    private global::Eventuate.Serialization.Proto.ReplicationFilterTreeFormat children_;
+    private static readonly pb::FieldCodec<global::Eventuate.Serialization.Proto.ReplicationFilterTreeFormat> _repeated_children_codec
+        = pb::FieldCodec.ForMessage(18, global::Eventuate.Serialization.Proto.ReplicationFilterTreeFormat.Parser);
+    private readonly pbc::RepeatedField<global::Eventuate.Serialization.Proto.ReplicationFilterTreeFormat> children_ = new pbc::RepeatedField<global::Eventuate.Serialization.Proto.ReplicationFilterTreeFormat>();
     /// <summary>
     /// set if nodeType == AND | OR
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    public global::Eventuate.Serialization.Proto.ReplicationFilterTreeFormat Children {
+    public pbc::RepeatedField<global::Eventuate.Serialization.Proto.ReplicationFilterTreeFormat> Children {
       get { return children_; }
-      set {
-        children_ = value;
-      }
     }
 
     /// <summary>Field number for the "filter" field.</summary>
@@ -130,7 +129,7 @@ namespace Eventuate.Serialization.Proto {
         return true;
       }
       if (NodeType != other.NodeType) return false;
-      if (!object.Equals(Children, other.Children)) return false;
+      if(!children_.Equals(other.children_)) return false;
       if (!object.Equals(Filter, other.Filter)) return false;
       return true;
     }
@@ -139,7 +138,7 @@ namespace Eventuate.Serialization.Proto {
     public override int GetHashCode() {
       int hash = 1;
       if (NodeType != 0) hash ^= NodeType.GetHashCode();
-      if (children_ != null) hash ^= Children.GetHashCode();
+      hash ^= children_.GetHashCode();
       if (filter_ != null) hash ^= Filter.GetHashCode();
       return hash;
     }
@@ -155,10 +154,7 @@ namespace Eventuate.Serialization.Proto {
         output.WriteRawTag(8);
         output.WriteEnum((int) NodeType);
       }
-      if (children_ != null) {
-        output.WriteRawTag(18);
-        output.WriteMessage(Children);
-      }
+      children_.WriteTo(output, _repeated_children_codec);
       if (filter_ != null) {
         output.WriteRawTag(26);
         output.WriteMessage(Filter);
@@ -171,9 +167,7 @@ namespace Eventuate.Serialization.Proto {
       if (NodeType != 0) {
         size += 1 + pb::CodedOutputStream.ComputeEnumSize((int) NodeType);
       }
-      if (children_ != null) {
-        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Children);
-      }
+      size += children_.CalculateSize(_repeated_children_codec);
       if (filter_ != null) {
         size += 1 + pb::CodedOutputStream.ComputeMessageSize(Filter);
       }
@@ -188,12 +182,7 @@ namespace Eventuate.Serialization.Proto {
       if (other.NodeType != 0) {
         NodeType = other.NodeType;
       }
-      if (other.children_ != null) {
-        if (children_ == null) {
-          children_ = new global::Eventuate.Serialization.Proto.ReplicationFilterTreeFormat();
-        }
-        Children.MergeFrom(other.Children);
-      }
+      children_.Add(other.children_);
       if (other.filter_ != null) {
         if (filter_ == null) {
           filter_ = new global::Eventuate.Serialization.Proto.PayloadFormat();
@@ -215,10 +204,7 @@ namespace Eventuate.Serialization.Proto {
             break;
           }
           case 18: {
-            if (children_ == null) {
-              children_ = new global::Eventuate.Serialization.Proto.ReplicationFilterTreeFormat();
-            }
-            input.ReadMessage(children_);
+            children_.AddEntriesFrom(input, _repeated_children_codec);
             break;
           }
           case 26: {

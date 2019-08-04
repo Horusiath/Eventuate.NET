@@ -91,12 +91,15 @@ namespace Eventuate.ReplicationProtocol
     /// <summary>
     /// Instructs a remote <see cref="ReplicationEndpoint"/> to return a <see cref="ReplicationEndpointInfo"/> object.
     /// </summary>
-    internal readonly struct GetReplicationEndpointInfo : ISerializable { }
+    internal readonly struct GetReplicationEndpointInfo : IReplicationFormat
+    {
+        public static readonly GetReplicationEndpointInfo Default = new GetReplicationEndpointInfo();
+    }
 
     /// <summary>
     /// Success reply to <see cref="GetReplicationEndpointInfo"/>.
     /// </summary>
-    internal readonly struct GetReplicationEndpointInfoSuccess : IEquatable<GetReplicationEndpointInfoSuccess>, ISerializable
+    internal readonly struct GetReplicationEndpointInfoSuccess : IEquatable<GetReplicationEndpointInfoSuccess>, IReplicationFormat
     {
         public GetReplicationEndpointInfoSuccess(ReplicationEndpointInfo info)
         {
@@ -118,7 +121,7 @@ namespace Eventuate.ReplicationProtocol
     /// - reset locally stored replication progress according to the sequence numbers given in <see cref="Info"/> and
     /// - respond with a <see cref="ReplicationEndpoint"/> containing the after disaster progress of its logs
     /// </summary>
-    internal readonly struct SynchronizeReplicationProgress : IEquatable<SynchronizeReplicationProgress>, ISerializable
+    internal readonly struct SynchronizeReplicationProgress : IEquatable<SynchronizeReplicationProgress>, IReplicationFormat
     {
         public SynchronizeReplicationProgress(ReplicationEndpointInfo info)
         {
@@ -135,7 +138,7 @@ namespace Eventuate.ReplicationProtocol
     /// <summary>
     /// Successful response to a <see cref="SynchronizeReplicationProgress"/> request.
     /// </summary>
-    internal readonly struct SynchronizeReplicationProgressSuccess : IEquatable<SynchronizeReplicationProgressSuccess>, ISerializable
+    internal readonly struct SynchronizeReplicationProgressSuccess : IEquatable<SynchronizeReplicationProgressSuccess>, IReplicationFormat
     {
         public SynchronizeReplicationProgressSuccess(ReplicationEndpointInfo info)
         {
@@ -152,7 +155,7 @@ namespace Eventuate.ReplicationProtocol
     /// <summary>
     /// Failure response to a <see cref="SynchronizeReplicationProgress"/> request.
     /// </summary>
-    internal readonly struct SynchronizeReplicationProgressFailure : ISerializable, IEquatable<SynchronizeReplicationProgressFailure>, IFailure<SynchronizeReplicationProgressException>
+    internal readonly struct SynchronizeReplicationProgressFailure : IReplicationFormat, IEquatable<SynchronizeReplicationProgressFailure>, IFailure<SynchronizeReplicationProgressException>
     {
         public SynchronizeReplicationProgressFailure(SynchronizeReplicationProgressException cause)
         {
@@ -177,7 +180,7 @@ namespace Eventuate.ReplicationProtocol
     /// <summary>
     /// Indicates a problem synchronizing the replication progress of a remote <see cref="ReplicationEndpoint"/>
     /// </summary>
-    internal class SynchronizeReplicationProgressSourceException : SynchronizeReplicationProgressException, ISerializable
+    internal class SynchronizeReplicationProgressSourceException : SynchronizeReplicationProgressException, IReplicationFormat
     {
         public SynchronizeReplicationProgressSourceException(string message) : base($"Failure when updating local replication progress: {message}")
         {
@@ -187,7 +190,10 @@ namespace Eventuate.ReplicationProtocol
     /// <summary>
     /// Update notification sent to a replicator indicating that new events are available for replication.
     /// </summary>
-    public readonly struct ReplicationDue : ISerializable { }
+    public readonly struct ReplicationDue : IReplicationFormat
+    {
+        public static readonly ReplicationDue Default = new ReplicationDue();
+    }
 
     /// <summary>
     /// Requests the clock from an event log.
@@ -424,7 +430,7 @@ namespace Eventuate.ReplicationProtocol
     /// <see cref="ReplicationRead"/> requests are sent within this envelope to allow a remote acceptor to
     /// dispatch the request to the appropriate log.
     /// </summary>
-    public sealed class ReplicationReadEnvelope : ISerializable, IEquatable<ReplicationReadEnvelope>
+    public sealed class ReplicationReadEnvelope : IReplicationFormat, IEquatable<ReplicationReadEnvelope>
     {
         public ReplicationReadEnvelope(ReplicationRead payload, string logName, string targetApplicationName, ApplicationVersion targetApplicationVersion)
         {
@@ -471,7 +477,7 @@ namespace Eventuate.ReplicationProtocol
     /// Instructs a source log to read up to <see cref="Max"/> events starting at <see cref="FromSequenceNr"/> and applying
     /// the given replication <see cref="Filter"/>.
     /// </summary>
-    public sealed class ReplicationRead : ISerializable
+    public sealed class ReplicationRead : IReplicationFormat
     {
         public ReplicationRead(long fromSequenceNr, int max, int scanLimit, ReplicationFilter filter, string targetLogId, IActorRef replicator, VectorTime currentTargetVersionVector)
         {
@@ -496,7 +502,7 @@ namespace Eventuate.ReplicationProtocol
     /// <summary>
     /// Success reply after a <see cref="ReplicationRead"/>.
     /// </summary>
-    public sealed class ReplicationReadSuccess : ISerializable, IEquatable<ReplicationReadSuccess>
+    public sealed class ReplicationReadSuccess : IReplicationFormat, IEquatable<ReplicationReadSuccess>
     {
         public ReplicationReadSuccess(IReadOnlyCollection<DurableEvent> events, long fromSequenceNr, long replicationProgress, string targetLogId, VectorTime currentSourceVersionVector)
         {
@@ -546,7 +552,7 @@ namespace Eventuate.ReplicationProtocol
     /// <summary>
     /// Failure reply after a <see cref="ReplicationRead"/>.
     /// </summary>
-    public sealed class ReplicationReadFailure : ISerializable, IFailure<ReplicationReadException>, IEquatable<ReplicationReadFailure>
+    public sealed class ReplicationReadFailure : IReplicationFormat, IFailure<ReplicationReadException>, IEquatable<ReplicationReadFailure>
     {
         public ReplicationReadFailure(ReplicationReadException cause, string targetLogId)
         {
@@ -781,7 +787,7 @@ namespace Eventuate.ReplicationProtocol
     /// <summary>
     /// Indicates a problem reading events from the backend store at the source endpoint.
     /// </summary>
-    public class ReplicationReadSourceException : ReplicationReadException
+    public class ReplicationReadSourceException : ReplicationReadException, IReplicationFormat
     {
         public ReplicationReadSourceException(string message) : base(message)
         {
@@ -842,11 +848,18 @@ namespace Eventuate.ReplicationProtocol
     /// Indicates that events cannot be replication from a source <see cref="ReplicationEndpoint"/> to a target <see cref="ReplicationEndpoint"/>
     /// because their application versions are incompatible.
     /// </summary>
-    public class IncompatibleApplicationVersionException : ReplicationReadException, ISerializable
+    public class IncompatibleApplicationVersionException : ReplicationReadException, IReplicationFormat
     {
+        public string SourceEndpointId { get; }
+        public ApplicationVersion SourceApplicationVersion { get; }
+        public ApplicationVersion TargetApplicationVersion { get; }
+
         public IncompatibleApplicationVersionException(string sourceEndpointId, ApplicationVersion sourceApplicationVersion, ApplicationVersion targetApplicationVersion) 
             : base($"Event replication rejected by remote endpoint {sourceEndpointId}. Target {targetApplicationVersion} not compatible with source {sourceApplicationVersion}")
         {
+            SourceEndpointId = sourceEndpointId;
+            SourceApplicationVersion = sourceApplicationVersion;
+            TargetApplicationVersion = targetApplicationVersion;
         }
 
     }

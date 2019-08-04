@@ -44,17 +44,18 @@ namespace Eventuate.Serialization.Proto {
             "aXphdGlvbi5Qcm90by5FdmVudElkRm9ybWF0IoQBCh5QZXJzaXN0T25FdmVu",
             "dEludm9jYXRpb25Gb3JtYXQSOwoFZXZlbnQYASABKAsyLC5FdmVudHVhdGUu",
             "U2VyaWFsaXphdGlvbi5Qcm90by5QYXlsb2FkRm9ybWF0EiUKHWN1c3RvbURl",
-            "c3RpbmF0aW9uQWdncmVnYXRlSWRzGAIgAygJInwKHENvbmN1cnJlbnRWZXJz",
-            "aW9uc1RyZWVGb3JtYXQSTQoEcm9vdBgBIAEoCzI/LkV2ZW50dWF0ZS5TZXJp",
-            "YWxpemF0aW9uLlByb3RvLkNvbmN1cnJlbnRWZXJzaW9uc1RyZWVOb2RlRm9y",
-            "bWF0Eg0KBW93bmVyGAIgASgJIsoBCiBDb25jdXJyZW50VmVyc2lvbnNUcmVl",
-            "Tm9kZUZvcm1hdBJBCgl2ZXJzaW9uZWQYASABKAsyLi5FdmVudHVhdGUuU2Vy",
-            "aWFsaXphdGlvbi5Qcm90by5WZXJzaW9uZWRGb3JtYXQSEAoIcmVqZWN0ZWQY",
-            "AiABKAgSUQoIY2hpbGRyZW4YAyADKAsyPy5FdmVudHVhdGUuU2VyaWFsaXph",
-            "dGlvbi5Qcm90by5Db25jdXJyZW50VmVyc2lvbnNUcmVlTm9kZUZvcm1hdCJx",
-            "ChNFdmVudExvZ0Nsb2NrRm9ybWF0EhIKCnNlcXVlbmNlTnIYASABKAMSRgoN",
-            "dmVyc2lvblZlY3RvchgCIAEoCzIvLkV2ZW50dWF0ZS5TZXJpYWxpemF0aW9u",
-            "LlByb3RvLlZlY3RvclRpbWVGb3JtYXRiBnByb3RvMw=="));
+            "c3RpbmF0aW9uQWdncmVnYXRlSWRzGAIgAygJIqsBChxDb25jdXJyZW50VmVy",
+            "c2lvbnNUcmVlRm9ybWF0Ek0KBHJvb3QYASABKAsyPy5FdmVudHVhdGUuU2Vy",
+            "aWFsaXphdGlvbi5Qcm90by5Db25jdXJyZW50VmVyc2lvbnNUcmVlTm9kZUZv",
+            "cm1hdBINCgVvd25lchgCIAEoCRIVCg12YWx1ZUNsYXNzVGFnGAMgASgFEhYK",
+            "DnVwZGF0ZUNsYXNzVGFnGAQgASgFIsoBCiBDb25jdXJyZW50VmVyc2lvbnNU",
+            "cmVlTm9kZUZvcm1hdBJBCgl2ZXJzaW9uZWQYASABKAsyLi5FdmVudHVhdGUu",
+            "U2VyaWFsaXphdGlvbi5Qcm90by5WZXJzaW9uZWRGb3JtYXQSEAoIcmVqZWN0",
+            "ZWQYAiABKAgSUQoIY2hpbGRyZW4YAyADKAsyPy5FdmVudHVhdGUuU2VyaWFs",
+            "aXphdGlvbi5Qcm90by5Db25jdXJyZW50VmVyc2lvbnNUcmVlTm9kZUZvcm1h",
+            "dCJxChNFdmVudExvZ0Nsb2NrRm9ybWF0EhIKCnNlcXVlbmNlTnIYASABKAMS",
+            "RgoNdmVyc2lvblZlY3RvchgCIAEoCzIvLkV2ZW50dWF0ZS5TZXJpYWxpemF0",
+            "aW9uLlByb3RvLlZlY3RvclRpbWVGb3JtYXRiBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Eventuate.Serialization.Proto.CommonFormatsReflection.Descriptor, global::Eventuate.Serialization.Proto.DurableEventFormatsReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, new pbr::GeneratedClrTypeInfo[] {
@@ -62,7 +63,7 @@ namespace Eventuate.Serialization.Proto {
             new pbr::GeneratedClrTypeInfo(typeof(global::Eventuate.Serialization.Proto.DeliveryAttemptFormat), global::Eventuate.Serialization.Proto.DeliveryAttemptFormat.Parser, new[]{ "DeliveryId", "Message", "Destination" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Eventuate.Serialization.Proto.PersistOnEventRequestFormat), global::Eventuate.Serialization.Proto.PersistOnEventRequestFormat.Parser, new[]{ "SequenceNr", "Invocation", "InstanceId", "EventId" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Eventuate.Serialization.Proto.PersistOnEventInvocationFormat), global::Eventuate.Serialization.Proto.PersistOnEventInvocationFormat.Parser, new[]{ "Event", "CustomDestinationAggregateIds" }, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Eventuate.Serialization.Proto.ConcurrentVersionsTreeFormat), global::Eventuate.Serialization.Proto.ConcurrentVersionsTreeFormat.Parser, new[]{ "Root", "Owner" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Eventuate.Serialization.Proto.ConcurrentVersionsTreeFormat), global::Eventuate.Serialization.Proto.ConcurrentVersionsTreeFormat.Parser, new[]{ "Root", "Owner", "ValueClassTag", "UpdateClassTag" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Eventuate.Serialization.Proto.ConcurrentVersionsTreeNodeFormat), global::Eventuate.Serialization.Proto.ConcurrentVersionsTreeNodeFormat.Parser, new[]{ "Versioned", "Rejected", "Children" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Eventuate.Serialization.Proto.EventLogClockFormat), global::Eventuate.Serialization.Proto.EventLogClockFormat.Parser, new[]{ "SequenceNr", "VersionVector" }, null, null, null)
           }));
@@ -905,6 +906,8 @@ namespace Eventuate.Serialization.Proto {
     public ConcurrentVersionsTreeFormat(ConcurrentVersionsTreeFormat other) : this() {
       Root = other.root_ != null ? other.Root.Clone() : null;
       owner_ = other.owner_;
+      valueClassTag_ = other.valueClassTag_;
+      updateClassTag_ = other.updateClassTag_;
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -934,6 +937,28 @@ namespace Eventuate.Serialization.Proto {
       }
     }
 
+    /// <summary>Field number for the "valueClassTag" field.</summary>
+    public const int ValueClassTagFieldNumber = 3;
+    private int valueClassTag_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    public int ValueClassTag {
+      get { return valueClassTag_; }
+      set {
+        valueClassTag_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "updateClassTag" field.</summary>
+    public const int UpdateClassTagFieldNumber = 4;
+    private int updateClassTag_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    public int UpdateClassTag {
+      get { return updateClassTag_; }
+      set {
+        updateClassTag_ = value;
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     public override bool Equals(object other) {
       return Equals(other as ConcurrentVersionsTreeFormat);
@@ -949,6 +974,8 @@ namespace Eventuate.Serialization.Proto {
       }
       if (!object.Equals(Root, other.Root)) return false;
       if (Owner != other.Owner) return false;
+      if (ValueClassTag != other.ValueClassTag) return false;
+      if (UpdateClassTag != other.UpdateClassTag) return false;
       return true;
     }
 
@@ -957,6 +984,8 @@ namespace Eventuate.Serialization.Proto {
       int hash = 1;
       if (root_ != null) hash ^= Root.GetHashCode();
       if (Owner.Length != 0) hash ^= Owner.GetHashCode();
+      if (ValueClassTag != 0) hash ^= ValueClassTag.GetHashCode();
+      if (UpdateClassTag != 0) hash ^= UpdateClassTag.GetHashCode();
       return hash;
     }
 
@@ -975,6 +1004,14 @@ namespace Eventuate.Serialization.Proto {
         output.WriteRawTag(18);
         output.WriteString(Owner);
       }
+      if (ValueClassTag != 0) {
+        output.WriteRawTag(24);
+        output.WriteInt32(ValueClassTag);
+      }
+      if (UpdateClassTag != 0) {
+        output.WriteRawTag(32);
+        output.WriteInt32(UpdateClassTag);
+      }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -985,6 +1022,12 @@ namespace Eventuate.Serialization.Proto {
       }
       if (Owner.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Owner);
+      }
+      if (ValueClassTag != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(ValueClassTag);
+      }
+      if (UpdateClassTag != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(UpdateClassTag);
       }
       return size;
     }
@@ -1002,6 +1045,12 @@ namespace Eventuate.Serialization.Proto {
       }
       if (other.Owner.Length != 0) {
         Owner = other.Owner;
+      }
+      if (other.ValueClassTag != 0) {
+        ValueClassTag = other.ValueClassTag;
+      }
+      if (other.UpdateClassTag != 0) {
+        UpdateClassTag = other.UpdateClassTag;
       }
     }
 
@@ -1022,6 +1071,14 @@ namespace Eventuate.Serialization.Proto {
           }
           case 18: {
             Owner = input.ReadString();
+            break;
+          }
+          case 24: {
+            ValueClassTag = input.ReadInt32();
+            break;
+          }
+          case 32: {
+            UpdateClassTag = input.ReadInt32();
             break;
           }
         }

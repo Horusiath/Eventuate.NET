@@ -18,7 +18,7 @@ namespace Eventuate
     /// <summary>
     /// Serializable and composable replication filter.
     /// </summary>
-    public abstract class ReplicationFilter : ISerializable
+    public abstract class ReplicationFilter : IReplicationFilterFormat
     {
         /// <summary>
         /// Evaluates this filter on the given <paramref name="durableEvent"/>.
