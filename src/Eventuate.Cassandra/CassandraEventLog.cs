@@ -1,6 +1,6 @@
 #region copyright
 // -----------------------------------------------------------------------
-//  <copyright file="CassandraEventLog.cs" company="Akka.NET Project">
+//  <copyright file="CassandraEventLog.cs">
 //      Copyright (C) 2015-2019 Red Bull Media House GmbH <http://www.redbullmediahouse.com>
 //      Copyright (C) 2019-2019 Bartosz Sypytkowski <b.sypytkowski@gmail.com>
 //  </copyright>
@@ -65,15 +65,15 @@ namespace Eventuate.Cassandra
     /// </summary>
     /// <seealso cref="Cassandra"/>
     /// <seealso cref="DurableEvent"/>
-    public sealed class CassandraEventLog : EventLog<CassandraEventLogSettings, CassandraEventLogState>
+    public class CassandraEventLog : EventLog<CassandraEventLogSettings, CassandraEventLogState>
     {
-        private static readonly Regex validCassandraIdentifier = new Regex("^[a-zA-Z0-9_]+$", RegexOptions.Compiled);
+        private static readonly Regex ValidCassandraIdentifier = new Regex("^[a-zA-Z0-9_]+$", RegexOptions.Compiled);
 
         /// <summary>
         /// Check whether the specified <paramref name="logId"/> is valid for Cassandra
         /// table, column and/or keyspace name usage.
         /// </summary>
-        private static bool IsValidEventLogId(string logId) => validCassandraIdentifier.IsMatch(logId);
+        private static bool IsValidEventLogId(string logId) => ValidCassandraIdentifier.IsMatch(logId);
         
         /// <summary>
         /// Creates a <see cref="CassandraEventLog"/> configuration object.

@@ -1,6 +1,6 @@
 #region copyright
 // -----------------------------------------------------------------------
-//  <copyright file="Records.cs" company="Akka.NET Project">
+//  <copyright file="SqlSnapshotStore.cs" company="Bartosz Sypytkowski">
 //      Copyright (C) 2015-2019 Red Bull Media House GmbH <http://www.redbullmediahouse.com>
 //      Copyright (C) 2019-2019 Bartosz Sypytkowski <b.sypytkowski@gmail.com>
 //  </copyright>
@@ -9,17 +9,32 @@
 
 namespace Eventuate.Sql
 {
-    public interface IEventConverter
+    public interface IEventConverter<TEvent>
     {
-        DurableEvent ToEvent(object row);
+        DurableEvent ToEvent(TEvent row);
 
-        object FromEvent(DurableEvent durableEvent);
+        TEvent FromEvent(DurableEvent durableEvent);
     }
 
-    public interface ISnapshotConverter
+    public interface ISnapshotConverter<TSnapshot>
     {
-        Snapshot ToSnapshot(object row);
+        Snapshot ToSnapshot(TSnapshot row);
         
-        object FromSnapshot(Snapshot snapshot);
+        TSnapshot FromSnapshot(Snapshot snapshot);
+        
+        /// <summary>
+        /// A SQL select statement used to retrieve snapshot data. It must contain an @emitterId parameter.
+        /// </summary>
+        string SelectStatement { get; }
+
+        /// <summary>
+        /// A SQL select statement used to delete snapshot data lower than provided @sequenceNr parameter.
+        /// </summary>
+        string DeleteToStatement { get; }
+        
+        /// <summary>
+        /// A SQL select statement used to insert snapshot. It must have parameters for all of the <typeparamref name="TSnapshot"/> fields.
+        /// </summary>
+        string InsertStatement { get; }
     }
 }

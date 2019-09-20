@@ -1,6 +1,6 @@
 #region copyright
 // -----------------------------------------------------------------------
-//  <copyright file="CassandraIndexStore.cs" company="Akka.NET Project">
+//  <copyright file="CassandraIndexStore.cs">
 //      Copyright (C) 2015-2019 Red Bull Media House GmbH <http://www.redbullmediahouse.com>
 //      Copyright (C) 2019-2019 Bartosz Sypytkowski <b.sypytkowski@gmail.com>
 //  </copyright>
@@ -17,8 +17,7 @@ using Eventuate.EventLogs;
 
 namespace Eventuate.Cassandra
 {
-    
-    internal class CassandraIndexStore
+    public class CassandraIndexStore
     {
         
         private readonly Cassandra cassandra;

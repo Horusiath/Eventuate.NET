@@ -1,6 +1,6 @@
 #region copyright
 // -----------------------------------------------------------------------
-//  <copyright file="CassandraIndex.cs" company="Akka.NET Project">
+//  <copyright file="CassandraIndex.cs">
 //      Copyright (C) 2015-2019 Red Bull Media House GmbH <http://www.redbullmediahouse.com>
 //      Copyright (C) 2019-2019 Bartosz Sypytkowski <b.sypytkowski@gmail.com>
 //  </copyright>
@@ -18,7 +18,7 @@ using Eventuate.EventLogs;
 
 namespace Eventuate.Cassandra
 {
-    internal sealed class CassandraIndex : ActorBase
+    public sealed class CassandraIndex : ActorBase
     {
         #region internal classes
 

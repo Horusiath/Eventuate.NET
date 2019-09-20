@@ -11,76 +11,79 @@ using System;
 using System.Data.Common;
 using System.Threading;
 using System.Threading.Tasks;
+using Dapper;
+using Dapper.Contrib.Extensions;
 using Eventuate.Snapshots;
 
 namespace Eventuate.Sql
 {
-    public sealed class SqlSnapshotStore : ISnapshotStore
+    public sealed class SqlSnapshotStore<TSnapshot> : ISnapshotStore where TSnapshot: class
     {
-        private readonly SqlSnapshotStoreSettings settings;
+        private readonly SqlSnapshotStoreSettings<TSnapshot> settings;
         private readonly Func<DbConnection> dbFactory;
-        private readonly ISnapshotConverter converter;
+        private readonly ISnapshotConverter<TSnapshot> converter;
 
-        public SqlSnapshotStore(SqlSnapshotStoreSettings settings)
+        public SqlSnapshotStore(SqlSnapshotStoreSettings<TSnapshot> settings)
         {
             this.settings = settings;
-            this.dbFactory = DbConnectionFactory.Create(settings.ConnectionString, settings.ProviderName);
-            this.converter = (ISnapshotConverter) Activator.CreateInstance(Type.GetType(settings.ConverterType, throwOnError: true));
+            this.dbFactory = DbConnectionFactory.Create(settings.ConnectionString, settings.ProviderType);
+            this.converter = settings.Converter;
         }
 
-        public Task Delete(long lowerSequenceNr)
+        public async Task Delete(long lowerSequenceNr)
         {
-            throw new System.NotImplementedException();
+            await this.UsingConnection(connection =>
+            {
+                if (settings.OperationTimeout.HasValue)
+                    return connection.ExecuteAsync(converter.DeleteToStatement, new { sequenceNr = lowerSequenceNr}, commandTimeout: (int) settings.OperationTimeout.Value.TotalMilliseconds);
+                else
+                    return connection.ExecuteAsync(converter.DeleteToStatement, new { sequenceNr = lowerSequenceNr});
+            });
         }
 
-        public Task Save(Snapshot snapshot)
+        public async Task Save(Snapshot snapshot)
         {
-            throw new System.NotImplementedException();
+            var record = converter.FromSnapshot(snapshot);
+            await this.UsingConnection(connection =>
+            {
+                if (settings.OperationTimeout.HasValue)
+                    return connection.InsertAsync(record, commandTimeout: (int) settings.OperationTimeout.Value.TotalMilliseconds);
+                else
+                    return connection.InsertAsync(record);
+            });
         }
 
-        public Task<Snapshot> Load(string emitterId)
+        public async Task<Snapshot> Load(string emitterId)
         {
-            throw new System.NotImplementedException();
+            return await this.UsingConnection(async connection =>
+            {
+                var record = settings.OperationTimeout.HasValue
+                    ? connection.QueryFirstAsync<TSnapshot>(converter.SelectStatement, new { emitterId }, commandTimeout: (int) settings.OperationTimeout.Value.TotalMilliseconds)
+                    : connection.QueryFirstAsync<TSnapshot>(converter.SelectStatement, new { emitterId });
+                
+                return converter.ToSnapshot(await record);
+            });
         }
 
-        private async Task<DbConnection> OpenConnection(CancellationToken cancellationToken)
+        private async Task<T> UsingConnection<T>(Func<DbConnection, Task<T>> operation)
         {
-            var connection = dbFactory();
-            await connection.OpenAsync(cancellationToken);
-            return connection;
+            if (settings.OperationTimeout.HasValue)
+            {
+                using (var cts = new CancellationTokenSource(settings.OperationTimeout.Value))
+                using (var connection = this.dbFactory())
+                {
+                    await connection.OpenAsync(cts.Token);
+                    return await operation(connection);
+                }
+            }
+            else
+            {
+                using (var connection = this.dbFactory())
+                {
+                    await connection.OpenAsync();
+                    return await operation(connection);
+                }
+            }
         }
-    }
-    
-    /// <summary>
-    /// Type used to configure <see cref="SqlSnapshotStore"/>.
-    /// </summary>
-    public sealed class SqlSnapshotStoreSettings
-    {
-        public SqlSnapshotStoreSettings(string connectionString, string providerName, string converterType)
-        {
-            ConnectionString = connectionString;
-            ProviderName = providerName;
-            ConverterType = converterType;
-        }
-
-        /// <summary>
-        /// Connection string to an SQL database of choice.
-        /// </summary>
-        public string ConnectionString { get; }
-        
-        /// <summary>
-        /// Provider name describing current SQL driver in use. Supported:
-        /// 1. `System.Data.SqlClient` (SqlServer)
-        /// 2. `Npgsql`
-        /// 3. `MySql.Data.MySqlClient` (MySql)
-        /// 4. `System.Data.SQLite` (Sqlite)
-        /// </summary>
-        public string ProviderName { get; }
-        
-        /// <summary>
-        /// A fully qualified name targetting a type implementing <see cref="ISnapshotConverter"/> interface,
-        /// which will be used to convert between <see cref="Snapshot"/> data and its database record representation.
-        /// </summary>
-        public string ConverterType { get; }
     }
 }

@@ -17,10 +17,13 @@ using Eventuate.Snapshots;
 
 namespace Eventuate.Sql
 {
-    public class SqlEventLog : EventLog<SqlEventLogSettings, SqlEventLogState>
+    public class SqlEventLog<TEvent> : EventLog<SqlEventLogSettings<TEvent>, SqlEventLogState> where TEvent: class
     {
-        public SqlEventLog(string id, ISnapshotStore snapshotStore) : base(id)
+        private readonly SqlEventLogSettings<TEvent> settings;
+
+        public SqlEventLog(string id, SqlEventLogSettings<TEvent> settings, ISnapshotStore snapshotStore) : base(id)
         {
+            this.settings = settings;
             SnapshotStore = snapshotStore;
         }
 
@@ -80,21 +83,5 @@ namespace Eventuate.Sql
     {
         public EventLogClock EventLogClock { get; set; }
         public DeletionMetadata DeletionMetadata { get; set; }
-    }
-
-    public class SqlEventLogSettings : IEventLogSettings
-    {
-        public long PartitionSize { get; }
-        public int InitRetryMax { get; }
-        public TimeSpan InitRetryDelay { get; }
-        public TimeSpan DeletionRetryDelay { get; }
-
-        public SqlEventLogSettings(long partitionSize, int initRetryMax, TimeSpan initRetryDelay, TimeSpan deletionRetryDelay)
-        {
-            PartitionSize = partitionSize;
-            InitRetryMax = initRetryMax;
-            InitRetryDelay = initRetryDelay;
-            DeletionRetryDelay = deletionRetryDelay;
-        }
     }
 }
