@@ -19,10 +19,20 @@ using Akka.Actor;
 using Akka.Configuration;
 using Eventuate.EventLogs;
 using Eventuate.Snapshots;
+using Eventuate.Snapshots.Filesystem;
 using RocksDbSharp;
 
 namespace Eventuate.Rocks
 {
+    internal static class Classifiers
+    {
+        public const int AggregateIdMap = -1;
+        public const int EventLogIdMap = -2;
+        public const int ReplicationProgressMap = -3;
+        public const int DeletionMetadata = -4;
+        public const int Snapshot = -5;
+    }
+    
     public sealed class RocksDbSettings : IEventLogSettings
     {
         public long PartitionSize => long.MaxValue;
@@ -166,9 +176,9 @@ namespace Eventuate.Rocks
         
         #endregion
 
-        public static Akka.Actor.Props Props(string logId, ISnapshotStore snapshotStore, RocksDbSettings settings = null, string prefix = "log", bool batching = true)
+        public static Akka.Actor.Props Props(string logId, RocksDbSettings settings = null, string prefix = "log", bool batching = true)
         {
-            var logProps = Akka.Actor.Props.Create(() => new RocksDbEventLog(logId, prefix, settings, snapshotStore));
+            var logProps = Akka.Actor.Props.Create(() => new RocksDbEventLog(logId, prefix, settings));
             return batching ? Akka.Actor.Props.Create(() => new BatchingLayer(logProps)) : logProps;
         }
         
@@ -187,11 +197,11 @@ namespace Eventuate.Rocks
         private readonly byte[] clockKeyBytes = new byte[8];
         private readonly Func<byte[], DurableEvent> deserializeEvent;
 
-        public RocksDbEventLog(string id, string prefix, RocksDbSettings settings, ISnapshotStore snapshotStore) : base(id)
+        public RocksDbEventLog(string id, string prefix, RocksDbSettings settings) : base(id)
         {
             settings ??= new RocksDbSettings(Context.System.Settings.Config);
             this.prefix = prefix;
-            this.SnapshotStore = snapshotStore;
+            this.SnapshotStore = new FilesystemSnapshotStore(Context.System, id);
             this.Settings = settings;
             
             this.serialization = Context.System.Serialization;
@@ -204,10 +214,10 @@ namespace Eventuate.Rocks
             this.db = RocksDb.Open(new DbOptions().SetCreateIfMissing(true), dir);
             this.writeOptions = new WriteOptions().SetSync(settings.ShouldSync);
             this.readOptions = new ReadOptions().SetVerifyChecksums(false);
-            this.aggregateIdMap = new RocksDbNumericIdentifierStore(db, -1);
-            this.eventLogIdMap = new RocksDbNumericIdentifierStore(db, -2);
-            this.replicationProgressMap = new RocksDbReplicationProgressStore(db, -3, eventLogIdMap.NumericId, eventLogIdMap.FindId);
-            this.deletionMetadataStore = new RocksDbDeletionMetadataStore(db, writeOptions, -4);
+            this.aggregateIdMap = new RocksDbNumericIdentifierStore(db, Classifiers.AggregateIdMap);
+            this.eventLogIdMap = new RocksDbNumericIdentifierStore(db, Classifiers.EventLogIdMap);
+            this.replicationProgressMap = new RocksDbReplicationProgressStore(db, Classifiers.ReplicationProgressMap, eventLogIdMap.NumericId, eventLogIdMap.FindId);
+            this.deletionMetadataStore = new RocksDbDeletionMetadataStore(db, writeOptions, Classifiers.DeletionMetadata);
             
             var tDurableEvent = typeof(DurableEvent);
             var eventSerializerId = serialization.FindSerializerForType(tDurableEvent).Identifier;

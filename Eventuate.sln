@@ -21,6 +21,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eventuate.Cassandra.Tests",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eventuate.Rocks", "src\Eventuate.Rocks\Eventuate.Rocks.csproj", "{5D9357F7-65E4-4331-B985-FA2E0376DEF2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eventuate.Rocks.Tests", "src\Eventuate.Rocks.Tests\Eventuate.Rocks.Tests.csproj", "{239154F6-1D7B-491E-A263-2FA0661C177E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -55,6 +57,10 @@ Global
 		{5D9357F7-65E4-4331-B985-FA2E0376DEF2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5D9357F7-65E4-4331-B985-FA2E0376DEF2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5D9357F7-65E4-4331-B985-FA2E0376DEF2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{239154F6-1D7B-491E-A263-2FA0661C177E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{239154F6-1D7B-491E-A263-2FA0661C177E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{239154F6-1D7B-491E-A263-2FA0661C177E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{239154F6-1D7B-491E-A263-2FA0661C177E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -67,6 +73,7 @@ Global
 		{668D4D83-E0D0-4B02-9CF7-906F99846117} = {510CE68A-00DE-4317-897F-31F5D93EA69C}
 		{85C1DE41-DB80-4BE0-9BD6-FE47C40CCF75} = {510CE68A-00DE-4317-897F-31F5D93EA69C}
 		{5D9357F7-65E4-4331-B985-FA2E0376DEF2} = {510CE68A-00DE-4317-897F-31F5D93EA69C}
+		{239154F6-1D7B-491E-A263-2FA0661C177E} = {510CE68A-00DE-4317-897F-31F5D93EA69C}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {2F048451-F7E8-4D40-B4D0-8F54084DB384}
