@@ -432,7 +432,7 @@ namespace Eventuate
         /// <summary>
         /// Creates <see cref="ReplicationTarget"/> for given <paramref name="logName"/>.
         /// </summary>
-        internal ReplicationTarget Target(string logName) => new ReplicationTarget(this, logName, LogId(logName), Logs[logName]);
+        public ReplicationTarget Target(string logName) => new ReplicationTarget(this, logName, LogId(logName), Logs[logName]);
 
         /// <summary>
         /// Returns all log names this endpoint and <paramref name="endpointInfo"/> have in common.
