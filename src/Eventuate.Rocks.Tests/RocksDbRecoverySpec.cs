@@ -23,7 +23,7 @@ using Eventuate.ReplicationProtocol;
 using Eventuate.Tests;
 using FluentAssertions;
 using Xunit;
-using Xunit.Abstractions;
+using static Eventuate.Rocks.Tests.Utils;
 
 namespace Eventuate.Rocks.Tests
 {
@@ -121,7 +121,7 @@ namespace Eventuate.Rocks.Tests
             eventuate.log.recovery.remote-operation-retry-delay = 1s
             eventuate.log.recovery.remote-operation-timeout = 1s");
         
-        public RocksDbRecoverySpec(ITestOutputHelper output): base(output: output, config: SpecConfig)
+        public RocksDbRecoverySpec(): base(config: SpecConfig)
         {
         }
 
@@ -195,8 +195,8 @@ namespace Eventuate.Rocks.Tests
 
             Write(targetA, new List<string> {"a1", "a2"});
             Write(targetB, new List<string> {"b1", "b2"});
-            Replicate(targetA, targetB, 1);
-            Replicate(targetB, targetA, 1);
+            await Replicate(targetA, targetB, 1);
+            await Replicate(targetB, targetA, 1);
 
             await locationA1.System.Terminate();
 
@@ -232,18 +232,18 @@ namespace Eventuate.Rocks.Tests
             var logDirD = await LogDirectory(targetD1);
 
             Write(targetA, new List<string> {"a"});
-            Replicate(targetA, targetD1);
-            Replicate(targetD1, targetA);
+            await Replicate(targetA, targetD1);
+            await Replicate(targetD1, targetA);
 
             Write(targetB, new List<string> {"b"});
             Write(targetC, new List<string> {"c"});
-            Replicate(targetB, targetD1);
-            Replicate(targetC, targetD1);
-            Replicate(targetD1, targetB);
-            Replicate(targetD1, targetC);
+            await Replicate(targetB, targetD1);
+            await Replicate(targetC, targetD1);
+            await Replicate(targetD1, targetB);
+            await Replicate(targetD1, targetC);
 
             Write(targetD1, new List<string> {"d"});
-            Replicate(targetD1, targetC);
+            await Replicate(targetD1, targetC);
 
             // what a disaster ...
             await locationD1.System.Terminate();
@@ -289,33 +289,33 @@ namespace Eventuate.Rocks.Tests
           var bckDirD = Path.Combine(rootDirD, "backup");
 
           Write(targetA, new List<string> {"a"});
-          Replicate(targetA, targetD1);
-          Replicate(targetD1, targetA);
+          await Replicate(targetA, targetD1);
+          await Replicate(targetD1, targetA);
 
           Write(targetB, new List<string> {"b"});
           Write(targetC, new List<string> {"c"});
-          Replicate(targetB, targetD1);
+          await Replicate(targetB, targetD1);
 
           await locationD1.System.Terminate();
-          Directory.Copy(logDirD, bckDirD);
+          Dir.Copy(logDirD, bckDirD);
 
           var locationD2 = newLocationD();
           var endpointD2 = newEndpointD(locationD2);
           var targetD2 = endpointD2.Target("L1");
 
-          Replicate(targetC, targetD2);
-          Replicate(targetD2, targetB);
-          Replicate(targetD2, targetC);
+          await Replicate(targetC, targetD2);
+          await Replicate(targetD2, targetB);
+          await Replicate(targetD2, targetC);
 
           Write(targetD2, new List<string> {"d"});
-          Replicate(targetD2, targetC);
+          await Replicate(targetD2, targetC);
 
           // what a disaster ...
           await locationD2.System.Terminate();
           Directory.Delete(logDirD);
 
           // install a backup
-          Directory.Copy(bckDirD, logDirD);
+          Dir.Copy(bckDirD, logDirD);
 
           endpointA.Activate();
           endpointB.Activate();
@@ -436,7 +436,7 @@ namespace Eventuate.Rocks.Tests
             ReplicationEndpoint newEndpointC(Location l, bool activate = true) => l.Endpoint(
                 Set("L1"),
                 Set(ReplicationConnection(locationA.Port), ReplicationConnection(locationB.Port)),
-                TargetFilters(ImmutableDictionary<string, ReplicationFilter>.Empty.SetItem(endpointA.LogId("L1"), new PrefixesFilter("a", "b"))), // A does not receive cs
+                EndpointFilters.TargetFilters(ImmutableDictionary<string, ReplicationFilter>.Empty.SetItem(endpointA.LogId("L1"), new PrefixesFilter("a", "b"))), // A does not receive cs
             activate: activate);
 
             var endpointC1 = newEndpointC(locationC1);
@@ -473,7 +473,7 @@ namespace Eventuate.Rocks.Tests
             ReplicationEndpoint newEndpointB(Location l, bool activate = true) => l.Endpoint(
                 Set("L1"),
                 Set(ReplicationConnection(locationA.Port)),
-                TargetFilters(ImmutableDictionary<string, ReplicationFilter>.Empty.SetItem(endpointA.LogId("L1"), new PrefixesFilter("a"))), // A does not receive bs
+                EndpointFilters.TargetFilters(ImmutableDictionary<string, ReplicationFilter>.Empty.SetItem(endpointA.LogId("L1"), new PrefixesFilter("a"))), // A does not receive bs
                 activate: activate);
 
             var endpointB1 = newEndpointB(locationB1);
@@ -502,12 +502,12 @@ namespace Eventuate.Rocks.Tests
             Location newLocationB() => Location("B", customConfig: SpecConfig, customPort: CustomPort);
             var locationB1 = newLocationB();
 
-            var endpointA = locationA.Endpoint(Set("L1"), Set(ReplicationConnection(locationB1.Port)))
+            var endpointA = locationA.Endpoint(Set("L1"), Set(ReplicationConnection(locationB1.Port)));
 
             ReplicationEndpoint newEndpointB(Location l, bool activate = true) => l.Endpoint(
                 Set("L1"),
                 Set(ReplicationConnection(locationA.Port)),
-                TargetFilters(
+                EndpointFilters.TargetFilters(
                     ImmutableDictionary<string, ReplicationFilter>.Empty.SetItem(endpointA.LogId("L1"),
                         new PrefixesFilter("a"))), // A does not receive bs
                 activate: activate);

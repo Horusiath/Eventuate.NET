@@ -30,7 +30,7 @@ namespace Eventuate.Rocks.Tests
 
         public const string L1 = "L1";
         
-        public RocksDbDeleteEventsSpec(ITestOutputHelper output) : base(output: output, config: SpecConfig) 
+        public RocksDbDeleteEventsSpec() : base(config: SpecConfig) 
         {
         }
 

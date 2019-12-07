@@ -549,7 +549,7 @@ namespace Eventuate.EventLogs
 
         private void ProcessWrites(params Write[] writes)
         {
-            WriteBatches(writes, (events, clock) => PrepareEvents(events, clock, DateTime.UtcNow), Context).PipeTo(Self, Sender,
+            WriteBatches(writes, (events, clock) => PrepareEvents(events, clock, CurrentSystemTime), Context).PipeTo(Self, Sender,
                 success: tuple => new WriteBatchesSuccess(tuple.Item1, tuple.Item2, tuple.Item3),
                 failure: cause => new WriteBatchesFailure(cause, writes));
         }
@@ -562,12 +562,14 @@ namespace Eventuate.EventLogs
                     this.replicaVersionVectors = replicaVersionVectors.SetItem(id, m.CurrentVersionVector);
                 }
 
-            WriteBatches(writes, (events, clock) => PrepareReplicatedEvents(events.ToArray(), clock, DateTime.UtcNow), Context).PipeTo(Self, Sender,
+            WriteBatches(writes, (events, clock) => PrepareReplicatedEvents(events.ToArray(), clock, CurrentSystemTime), Context).PipeTo(Self, Sender,
                 success: tuple => new WriteReplicatedBatchesSuccess(writes, tuple.Item2, tuple.Item3),
                 failure: cause => new WriteReplicatedBatchesFailure(cause, writes));
         }
+        
+        protected virtual DateTime CurrentSystemTime => DateTime.UtcNow;
 
-        protected long AdjustFromSequenceNr(long sequenceNr) => Math.Max(sequenceNr, deletionMetadata.ToSequenceNr + 1);
+        protected virtual long AdjustFromSequenceNr(long sequenceNr) => Math.Max(sequenceNr, deletionMetadata.ToSequenceNr + 1);
 
         public virtual Task<long> Delete(long toSequenceNr) => throw new PhysicalDeletionNotSupportedException();
 

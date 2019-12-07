@@ -15,6 +15,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Akka.Actor;
+using Akka.Configuration;
 using Akka.TestKit;
 using Akka.TestKit.Xunit2;
 using Eventuate.EventsourcingProtocol;
@@ -64,9 +65,9 @@ namespace Eventuate.Tests.EventLogs
 
         public static readonly TimeSpan Timeout = 20.Seconds();
         
-        private static readonly string DefaultConfig = @"
+        private static readonly Config DefaultConfig = ConfigurationFactory.ParseString(@"
             akka.loglevel = ERROR
-            akka.test.single-expect-default = 20s";
+            akka.test.single-expect-default = 20s");
 
         protected readonly int instanceId;
         protected readonly TestProbe replyToProbe;
@@ -76,7 +77,7 @@ namespace Eventuate.Tests.EventLogs
         protected ImmutableArray<DurableEvent> generatedEmittedEvents = ImmutableArray<DurableEvent>.Empty;
         protected ImmutableArray<DurableEvent> generatedReplicatedEvents = ImmutableArray<DurableEvent>.Empty;
         
-        protected EventLogSpec(ITestOutputHelper output) : base(DefaultConfig, output)
+        protected EventLogSpec(ITestOutputHelper output, Config config) : base(config: config.WithFallback(DefaultConfig), output: output)
         {
             this.instanceId = Interlocked.Increment(ref instanceIdCounter);
             

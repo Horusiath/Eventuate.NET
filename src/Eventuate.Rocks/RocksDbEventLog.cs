@@ -86,7 +86,7 @@ namespace Eventuate.Rocks
     /// 
     ///'''Please note:''' `prefix` and `id` are currently not escaped when creating the directory name.
     ///</summary>
-    public sealed class RocksDbEventLog : EventLog<RocksDbSettings, RocksDbLogState>
+    public class RocksDbEventLog : EventLog<RocksDbSettings, RocksDbLogState>
     {
         #region internal classes
 
@@ -197,7 +197,7 @@ namespace Eventuate.Rocks
         private readonly byte[] clockKeyBytes = new byte[8];
         private readonly Func<byte[], DurableEvent> deserializeEvent;
 
-        public RocksDbEventLog(string id, string prefix, RocksDbSettings settings) : base(id)
+        public RocksDbEventLog(string id, string prefix, RocksDbSettings settings = null) : base(id)
         {
             settings ??= new RocksDbSettings(Context.System.Settings.Config);
             this.prefix = prefix;
