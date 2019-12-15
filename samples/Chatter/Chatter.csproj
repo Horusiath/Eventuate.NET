@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netcoreapp3.0</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <LangVersion>latest</LangVersion>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Akka.Cluster" Version="1.3.16" />
+      <PackageReference Include="Akka.Logger.Serilog" Version="1.3.10" />
+      <PackageReference Include="Serilog.Sinks.ColoredConsole" Version="3.0.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\..\src\Eventuate.Rocks\Eventuate.Rocks.csproj" />
+      <ProjectReference Include="..\..\src\Eventuate\Eventuate.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Update="reference.conf">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
+</Project>
