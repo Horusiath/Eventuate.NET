@@ -47,12 +47,12 @@ namespace Eventuate.Rocks
 
         public RocksDbSettings(Config config)
             : this(
-                dir: config.GetString("eventuate.log.leveldb.dir"),
-                deletionRetryDelay: config.GetTimeSpan("eventuate.log.leveldb.deletion-retry-delay"),
+                dir: config.GetString("eventuate.log.rocksdb.dir") ?? throw new ArgumentException("Missing configuration for key 'eventuate.log.rocksdb.dir'"),
+                deletionRetryDelay: config.GetTimeSpan("eventuate.log.rocksdb.deletion-retry-delay"),
                 readTimeout: config.GetTimeSpan("eventuate.log.read-timeout"),
-                shouldSync: config.GetBoolean("eventuate.log.leveldb.fsync"), 
-                stateSnapshotLimit: config.GetInt("eventuate.log.leveldb.state-snapshot-limit"),
-                deletionBatchSize: config.GetInt("eventuate.log.leveldb.deletion-batch-size"))
+                shouldSync: config.GetBoolean("eventuate.log.rocksdb.fsync"), 
+                stateSnapshotLimit: config.GetInt("eventuate.log.rocksdb.state-snapshot-limit"),
+                deletionBatchSize: config.GetInt("eventuate.log.rocksdb.deletion-batch-size"))
         {
         }
 
@@ -82,7 +82,7 @@ namespace Eventuate.Rocks
     /// <summary>
     ///An event log actor with LevelDB as storage backend. The directory containing the LevelDB files
     ///for this event log is named after the constructor parameters using the template "`prefix`-`id`"
-    ///and stored in a root directory defined by the `log.leveldb.dir` configuration.
+    ///and stored in a root directory defined by the `log.rocksdb.dir` configuration.
     /// 
     ///'''Please note:''' `prefix` and `id` are currently not escaped when creating the directory name.
     ///</summary>
@@ -181,6 +181,8 @@ namespace Eventuate.Rocks
             var logProps = Akka.Actor.Props.Create(() => new RocksDbEventLog(logId, prefix, settings));
             return batching ? Akka.Actor.Props.Create(() => new BatchingLayer(logProps)) : logProps;
         }
+
+        public static Config DefaultConfig { get; } = ConfigurationFactory.FromResource<RocksDbEventLog>("Eventuate.Rocks.reference.conf");
         
         private readonly string prefix;
         private readonly Akka.Serialization.Serialization serialization;
@@ -381,7 +383,7 @@ namespace Eventuate.Rocks
         {
             // Leveldb iterators that are used by threads other that this actor's dispatcher threads
             // are used in child actors of this actor. This ensures that these iterators are closed
-            // before this actor closes the leveldb instance (fixing issue #234).
+            // before this actor closes the rocksdb instance (fixing issue #234).
             db.Dispose();
             base.PostStop();
         }

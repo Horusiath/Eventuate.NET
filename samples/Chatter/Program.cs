@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Cluster;
 using Akka.Configuration;
+using Eventuate;
 using Eventuate.Rocks;
 using Serilog;
 
@@ -34,9 +35,15 @@ namespace Chatter
 
         static async Task Run(string user, string chatroom, int port, string seedNode, string configFile, CancellationToken token)
         {
-            var config = ConfigurationFactory.ParseString(await File.ReadAllTextAsync(configFile, token));
-            var c = ConfigurationFactory.ParseString(@"akka.remote.dot-netty.tcp.port = " + port);
-            using var system = ActorSystem.Create("chatter", c.WithFallback(config));
+            var localConfig = ConfigurationFactory.ParseString(await File.ReadAllTextAsync(configFile, token));
+            var instanceConfig = ConfigurationFactory.ParseString(@"akka.remote.dot-netty.tcp.port = " + port);
+            var config =
+                instanceConfig
+                    .WithFallback(localConfig)
+                    .WithFallback(RocksDbEventLog.DefaultConfig)
+                    .WithFallback(EventuateConfig.Default);
+            
+            using var system = ActorSystem.Create("chatter", config);
 
             await Cluster.Get(system).JoinAsync(Address.Parse(seedNode), token);
 

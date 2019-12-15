@@ -31,7 +31,7 @@ namespace Eventuate.Tests.MultiNode.Crdt
             NodeB = Role("nodeB");
             
             CommonConfig = ConfigurationFactory.ParseString(@"
-                eventuate.log.leveldb.dir = ""target/test-log""
+                eventuate.log.rocksdb.dir = ""target/test-log""
                 eventuate.log.write-batch-size = 200
                 eventuate.log.replication.remote-read-timeout = 2s")
                 .WithFallback(DefaultConfig);

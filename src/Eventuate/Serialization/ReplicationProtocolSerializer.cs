@@ -35,14 +35,15 @@ namespace Eventuate.Serialization
         private const string ReplicationReadSourceExceptionManifest = "L";
         private const string IncompatibleApplicationVersionExceptionManifest = "M";
             
-        private readonly DurableEventSerializer eventSerializer;
+        private DurableEventSerializer eventSerializer;
         private readonly ReplicationFilterSerializer filterSerializer;
         private readonly DelegatingPayloadSerializer payloadSerializer;
+
+        private DurableEventSerializer EventSerializer => eventSerializer ??= (DurableEventSerializer)system.Serialization.FindSerializerForType(typeof(DurableEvent));
 
         public ReplicationProtocolSerializer(ExtendedActorSystem system) : base(system)
         {
             this.payloadSerializer = new DelegatingPayloadSerializer(system);
-            this.eventSerializer = (DurableEventSerializer)system.Serialization.FindSerializerForType(typeof(DurableEvent));
             this.filterSerializer = new ReplicationFilterSerializer(system);
         }
 
@@ -125,12 +126,12 @@ namespace Eventuate.Serialization
                 ReplicationProgress = x.ReplicationProgress,
                 FromSequenceNr = x.FromSequenceNr,
                 TargetLogId = x.TargetLogId,
-                CurrentSourceVersionVector = eventSerializer.commonSerializer.VectorTimeFormatBuilder(x.CurrentSourceVersionVector)
+                CurrentSourceVersionVector = EventSerializer.commonSerializer.VectorTimeFormatBuilder(x.CurrentSourceVersionVector)
             };
 
             foreach (var e in x.Events)
             {
-                proto.Events.Add(eventSerializer.DurableEventFormatBuilder(e));
+                proto.Events.Add(EventSerializer.DurableEventFormatBuilder(e));
             }
             
             return proto;
@@ -144,7 +145,7 @@ namespace Eventuate.Serialization
                 ScanLimit = x.ScanLimit,
                 FromSequenceNr = x.FromSequenceNr,
                 TargetLogId = x.TargetLogId,
-                CurrentTargetVersionVector = eventSerializer.commonSerializer.VectorTimeFormatBuilder(x.CurrentTargetVersionVector),
+                CurrentTargetVersionVector = EventSerializer.commonSerializer.VectorTimeFormatBuilder(x.CurrentTargetVersionVector),
                 Replicator = Akka.Serialization.Serialization.SerializedActorPath(x.Replicator)
             };
 
@@ -234,7 +235,7 @@ namespace Eventuate.Serialization
             var events = new DurableEvent[format.Events.Count];
             for (int i = 0; i < format.Events.Count; i++)
             {
-                events[i] = eventSerializer.ToDurableEvent(format.Events[i]);
+                events[i] = EventSerializer.ToDurableEvent(format.Events[i]);
             }
             
             return new ReplicationReadSuccess(
@@ -242,7 +243,7 @@ namespace Eventuate.Serialization
                 fromSequenceNr: format.FromSequenceNr,
                 replicationProgress: format.ReplicationProgress,
                 targetLogId: format.TargetLogId,
-                currentSourceVersionVector: eventSerializer.commonSerializer.VectorTime(format.CurrentSourceVersionVector));
+                currentSourceVersionVector: EventSerializer.commonSerializer.VectorTime(format.CurrentSourceVersionVector));
         }
 
         private ReplicationReadFailure ReplicationReadFailureFromProto(ReplicationReadFailureFormat format) =>
@@ -258,7 +259,7 @@ namespace Eventuate.Serialization
                 filter: filterSerializer.FilterTree(format.Filter),
                 targetLogId: format.TargetLogId,
                 replicator: system.Provider.ResolveActorRef(format.Replicator),
-                currentTargetVersionVector: eventSerializer.commonSerializer.VectorTime(format.CurrentTargetVersionVector));
+                currentTargetVersionVector: EventSerializer.commonSerializer.VectorTime(format.CurrentTargetVersionVector));
 
         private ReplicationReadEnvelope ReplicationReadEnvelopeFromProto(ReplicationReadEnvelopeFormat format) =>
             new ReplicationReadEnvelope(

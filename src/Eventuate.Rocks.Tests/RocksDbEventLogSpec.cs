@@ -23,10 +23,10 @@ namespace Eventuate.Rocks.Tests
     public class RocksDbEventLogSpec : EventLogSpec
     {
         private static readonly Config Configuration = ConfigurationFactory.ParseString(@"
-            eventuate.log.leveldb.dir = target/test-log
-            eventuate.log.leveldb.index-update-limit = 6
-            eventuate.log.leveldb.deletion-batch-size = 2
-            eventuate.log.leveldb.deletion-retry-delay = 1ms").WithFallback(EventLogSpec.DefaultConfig);
+            eventuate.log.rocksdb.dir = target/test-log
+            eventuate.log.rocksdb.index-update-limit = 6
+            eventuate.log.rocksdb.deletion-batch-size = 2
+            eventuate.log.rocksdb.deletion-retry-delay = 1ms").WithFallback(EventLogSpec.DefaultConfig);
         
         public RocksDbEventLogSpec(ITestOutputHelper output) : base(output, Configuration)
         {

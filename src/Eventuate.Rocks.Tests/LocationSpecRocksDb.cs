@@ -190,9 +190,9 @@ namespace Eventuate.Rocks.Tests
     public abstract class MultiLocationSpecRocksDb : MultiLocationSpec
     {
         protected static readonly Config ProviderConfigBackup = ConfigurationFactory.ParseString(@"
-            eventuate.log.leveldb.dir = target/test-log
-            eventuate.log.leveldb.index-update-limit = 3
-            eventuate.log.leveldb.deletion-retry-delay = 1 ms");
+            eventuate.log.rocksdb.dir = target/test-log
+            eventuate.log.rocksdb.index-update-limit = 3
+            eventuate.log.rocksdb.deletion-retry-delay = 1 ms");
         
         protected MultiLocationSpecRocksDb() : base(ProviderConfigBackup)
         {
