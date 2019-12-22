@@ -25,7 +25,7 @@ namespace Eventuate.Serialization
     /// </summary>
     internal sealed class DelegatingDurableEventSerializer : DurableEventSerializer
     {
-        public DelegatingDurableEventSerializer(ExtendedActorSystem system) : base(system, new DelegatingPayloadSerializer())
+        public DelegatingDurableEventSerializer(ExtendedActorSystem system) : base(system, new DelegatingPayloadSerializer(system))
         {
         }
     }

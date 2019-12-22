@@ -30,17 +30,19 @@ namespace Eventuate.Serialization
     /// A <see cref="IPayloadSerializer"/> delegating to a serializer that is
     /// configured with Akka's serialization extension mechanism.
     /// </summary>
-    internal readonly struct DelegatingPayloadSerializer : IPayloadSerializer
+    internal sealed class DelegatingPayloadSerializer : IPayloadSerializer
     {
-        private readonly Akka.Serialization.Serialization serialization;
+        private readonly ExtendedActorSystem system;
+        private Akka.Serialization.Serialization serialization;
+        private Akka.Serialization.Serialization Serialization => serialization ?? this.system.Serialization;
         public DelegatingPayloadSerializer(ExtendedActorSystem system)
         {
-            this.serialization = system.Serialization;
+            this.system = system;
         }
 
         public PayloadFormat PayloadFormatBuilder(object payload)
         {
-            var serializer = serialization.FindSerializerFor(payload);
+            var serializer = Serialization.FindSerializerFor(payload);
             var proto = new PayloadFormat();
 
             if (serializer.IncludeManifest)
@@ -64,14 +66,14 @@ namespace Eventuate.Serialization
         public object Payload(PayloadFormat format)
         {
             if (format.IsStringManifest)
-                return this.serialization.Deserialize(format.Payload.ToByteArray(), format.SerializerId,
+                return this.Serialization.Deserialize(format.Payload.ToByteArray(), format.SerializerId,
                     format.PayloadManifest);
             else if (format.PayloadManifest is null)
-                return this.serialization.Deserialize(format.Payload.ToByteArray(), format.SerializerId, default(Type));
+                return this.Serialization.Deserialize(format.Payload.ToByteArray(), format.SerializerId, default(Type));
             else
             {
                 var type = Type.GetType(format.PayloadManifest, throwOnError: true);
-                return this.serialization.Deserialize(format.Payload.ToByteArray(), format.SerializerId, type);
+                return this.Serialization.Deserialize(format.Payload.ToByteArray(), format.SerializerId, type);
             }
         }
     }

@@ -1,10 +1,12 @@
 #region copyright
+
 // -----------------------------------------------------------------------
 //  <copyright file="RocksDbEventLog.cs">
 //      Copyright (C) 2015-2019 Red Bull Media House GmbH <http://www.redbullmediahouse.com>
 //      Copyright (C) 2019-2019 Bartosz Sypytkowski <b.sypytkowski@gmail.com>
 //  </copyright>
 // -----------------------------------------------------------------------
+
 #endregion
 
 using System;
@@ -32,7 +34,7 @@ namespace Eventuate.Rocks
         public const int DeletionMetadata = -4;
         public const int Snapshot = -5;
     }
-    
+
     public sealed class RocksDbSettings : IEventLogSettings
     {
         public long PartitionSize => long.MaxValue;
@@ -47,16 +49,18 @@ namespace Eventuate.Rocks
 
         public RocksDbSettings(Config config)
             : this(
-                dir: config.GetString("eventuate.log.rocksdb.dir") ?? throw new ArgumentException("Missing configuration for key 'eventuate.log.rocksdb.dir'"),
+                dir: config.GetString("eventuate.log.rocksdb.dir") ??
+                     throw new ArgumentException("Missing configuration for key 'eventuate.log.rocksdb.dir'"),
                 deletionRetryDelay: config.GetTimeSpan("eventuate.log.rocksdb.deletion-retry-delay"),
                 readTimeout: config.GetTimeSpan("eventuate.log.read-timeout"),
-                shouldSync: config.GetBoolean("eventuate.log.rocksdb.fsync"), 
+                shouldSync: config.GetBoolean("eventuate.log.rocksdb.fsync"),
                 stateSnapshotLimit: config.GetInt("eventuate.log.rocksdb.state-snapshot-limit"),
                 deletionBatchSize: config.GetInt("eventuate.log.rocksdb.deletion-batch-size"))
         {
         }
 
-        public RocksDbSettings(string dir, TimeSpan deletionRetryDelay, TimeSpan readTimeout, bool shouldSync, int stateSnapshotLimit, int deletionBatchSize)
+        public RocksDbSettings(string dir, TimeSpan deletionRetryDelay, TimeSpan readTimeout, bool shouldSync,
+            int stateSnapshotLimit, int deletionBatchSize)
         {
             Dir = dir;
             DeletionRetryDelay = deletionRetryDelay;
@@ -78,7 +82,57 @@ namespace Eventuate.Rocks
             DeletionMetadata = deletionMetadata;
         }
     }
-    
+
+    internal readonly struct EventKey : IEquatable<EventKey>
+    {
+        public const int DefaultClassifier = 0;
+        public static EventKey End { get; } = new EventKey(int.MaxValue, long.MaxValue);
+        internal static byte[] EndBytes { get; } = ToBytes(End.Classifier, End.SequenceNr);
+        internal static byte[] ClockKeyBytes { get; } = ToBytes(0, 0);
+
+        public int Classifier { get; }
+        public long SequenceNr { get; }
+
+        public EventKey(int classifier, long sequenceNr)
+        {
+            Classifier = classifier;
+            SequenceNr = sequenceNr;
+        }
+
+        public override string ToString() => $"EventKey(classifier: {Classifier}, sequenceNr: {SequenceNr})";
+        public bool Equals(EventKey other) => Classifier == other.Classifier && SequenceNr == other.SequenceNr;
+        public override bool Equals(object obj) => obj is EventKey other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return (Classifier * 397) ^ SequenceNr.GetHashCode();
+            }
+        }
+
+        public static bool operator ==(EventKey a, EventKey b) => a.Equals(b);
+
+        public static bool operator !=(EventKey a, EventKey b) => !(a == b);
+
+        internal static byte[] ToBytes(int classifier, long sequenceNr)
+        {
+            var buffer = new byte[12];
+            BinaryPrimitives.WriteInt32BigEndian(new Span<byte>(buffer, 0, 4), classifier);
+            BinaryPrimitives.WriteInt64BigEndian(new Span<byte>(buffer, 4, 8), sequenceNr);
+            return buffer;
+        }
+
+        internal static EventKey FromBytes(byte[] buffer)
+        {
+            if (buffer.Length != 12) return EventKey.End;
+            
+            var classifier = BinaryPrimitives.ReadInt32BigEndian(new Span<byte>(buffer, 0, 4));
+            var sequenceNr = BinaryPrimitives.ReadInt64BigEndian(new Span<byte>(buffer, 4, 8));
+            return new EventKey(classifier, sequenceNr);
+        }
+    }
+
     /// <summary>
     ///An event log actor with LevelDB as storage backend. The directory containing the LevelDB files
     ///for this event log is named after the constructor parameters using the template "`prefix`-`id`"
@@ -89,53 +143,6 @@ namespace Eventuate.Rocks
     public class RocksDbEventLog : EventLog<RocksDbSettings, RocksDbLogState>
     {
         #region internal classes
-
-        internal readonly struct EventKey : IEquatable<EventKey>
-        {
-            public const int DefaultClassifier = 0;
-            public static readonly EventKey End = new EventKey(int.MaxValue, long.MaxValue);
-            internal static readonly byte[] EndBytes = ToBytes(End.Classifier, End.SequenceNr);
-            internal static readonly byte[] ClockKeyBytes = ToBytes(0, 0);
-            
-            public int Classifier { get; }
-            public long SequenceNr { get; }
-
-            public EventKey(int classifier, long sequenceNr)
-            {
-                Classifier = classifier;
-                SequenceNr = sequenceNr;
-            }
-
-            public override string ToString() => $"EventKey(classifier: {Classifier}, sequenceNr: {SequenceNr})";
-            public bool Equals(EventKey other) => Classifier == other.Classifier && SequenceNr == other.SequenceNr;
-            public override bool Equals(object obj) => obj is EventKey other && Equals(other);
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    return (Classifier * 397) ^ SequenceNr.GetHashCode();
-                }
-            }
-
-            public static bool operator ==(EventKey a, EventKey b) => a.Equals(b);
-
-            public static bool operator !=(EventKey a, EventKey b) => !(a == b);
-
-            internal static byte[] ToBytes(int classifier, long sequenceNr)
-            {
-                var buffer = new byte[12];
-                BinaryPrimitives.WriteInt32BigEndian(new Span<byte>(buffer, 0, 4), classifier);
-                BinaryPrimitives.WriteInt64BigEndian(new Span<byte>(buffer, 4, 8), sequenceNr);
-                return buffer;
-            }
-
-            internal static EventKey FromBytes(byte[] buffer)
-            {
-                var classifier = BinaryPrimitives.ReadInt32BigEndian(new Span<byte>(buffer, 0, 4));
-                var sequenceNr = BinaryPrimitives.ReadInt64BigEndian(new Span<byte>(buffer, 4, 8));
-                return new EventKey(classifier, sequenceNr);
-            }
-        }
 
         internal sealed class EventEnumerator : IEnumerator<DurableEvent>
         {
@@ -150,12 +157,12 @@ namespace Eventuate.Rocks
                 this.toEvent = toEvent;
                 this.from = from;
                 this.iter = db.NewIterator();
-                iter.Seek(RocksDbEventLog.EventKey.ToBytes(classifier, from));
+                iter.Seek(EventKey.ToBytes(classifier, from));
             }
 
             public bool MoveNext()
             {
-                var key = RocksDbEventLog.EventKey.FromBytes(iter.Next().Key());
+                var key = EventKey.FromBytes(iter.Next().Key());
                 if (key.Classifier != classifier)
                     return false;
                 else
@@ -173,17 +180,19 @@ namespace Eventuate.Rocks
 
             public void Dispose() => iter.Dispose();
         }
-        
+
         #endregion
 
-        public static Akka.Actor.Props Props(string logId, RocksDbSettings settings = null, string prefix = "log", bool batching = true)
+        public static Akka.Actor.Props Props(string logId, RocksDbSettings settings = null, string prefix = "log",
+            bool batching = true)
         {
             var logProps = Akka.Actor.Props.Create(() => new RocksDbEventLog(logId, prefix, settings));
             return batching ? Akka.Actor.Props.Create(() => new BatchingLayer(logProps)) : logProps;
         }
 
-        public static Config DefaultConfig { get; } = ConfigurationFactory.FromResource<RocksDbEventLog>("Eventuate.Rocks.reference.conf");
-        
+        public static Config DefaultConfig { get; } =
+            ConfigurationFactory.FromResource<RocksDbEventLog>("Eventuate.Rocks.reference.conf");
+
         private readonly string prefix;
         private readonly Akka.Serialization.Serialization serialization;
         private readonly string dir;
@@ -205,7 +214,7 @@ namespace Eventuate.Rocks
             this.prefix = prefix;
             this.SnapshotStore = new FilesystemSnapshotStore(Context.System, id);
             this.Settings = settings;
-            
+
             this.serialization = Context.System.Serialization;
             this.dir = Path.Combine(settings.Dir, $"{prefix}-{id}");
             if (!Directory.Exists(dir))
@@ -218,15 +227,19 @@ namespace Eventuate.Rocks
             this.readOptions = new ReadOptions().SetVerifyChecksums(false);
             this.aggregateIdMap = new RocksDbNumericIdentifierStore(db, Classifiers.AggregateIdMap);
             this.eventLogIdMap = new RocksDbNumericIdentifierStore(db, Classifiers.EventLogIdMap);
-            this.replicationProgressMap = new RocksDbReplicationProgressStore(db, Classifiers.ReplicationProgressMap, eventLogIdMap.NumericId, eventLogIdMap.FindId);
-            this.deletionMetadataStore = new RocksDbDeletionMetadataStore(db, writeOptions, Classifiers.DeletionMetadata);
-            
+            this.replicationProgressMap = new RocksDbReplicationProgressStore(db, Classifiers.ReplicationProgressMap,
+                eventLogIdMap.NumericId, eventLogIdMap.FindId);
+            this.deletionMetadataStore =
+                new RocksDbDeletionMetadataStore(db, writeOptions, Classifiers.DeletionMetadata);
+
             var tDurableEvent = typeof(DurableEvent);
             var eventSerializerId = serialization.FindSerializerForType(tDurableEvent).Identifier;
-            this.deserializeEvent = bytes => (DurableEvent) serialization.Deserialize(bytes, eventSerializerId, tDurableEvent);
+            this.deserializeEvent = bytes =>
+                (DurableEvent) serialization.Deserialize(bytes, eventSerializerId, tDurableEvent);
         }
 
         protected override ISnapshotStore SnapshotStore { get; }
+
         public override async Task WriteReplicationProgresses(ImmutableDictionary<string, long> progresses)
         {
             using (var batch = new WriteBatch())
@@ -235,7 +248,7 @@ namespace Eventuate.Rocks
                 {
                     replicationProgressMap.WriteReplicationProgress(entry.Key, entry.Value, batch);
                 }
-                
+
                 db.Write(batch);
             }
         }
@@ -243,19 +256,27 @@ namespace Eventuate.Rocks
         public override async Task<BatchReadResult> Read(long fromSequenceNr, long toSequenceNr, int max)
         {
             using var cancellation = new CancellationTokenSource(Settings.ReadTimeout);
-            return await Task.Run(() => ReadSync(fromSequenceNr, toSequenceNr, EventKey.DefaultClassifier, max, int.MaxValue, _ => true), cancellation.Token);
+            return await Task.Run(
+                () => ReadSync(fromSequenceNr, toSequenceNr, EventKey.DefaultClassifier, max, int.MaxValue, _ => true),
+                cancellation.Token);
         }
 
-        public override async Task<BatchReadResult> Read(long fromSequenceNr, long toSequenceNr, int max, string aggregateId)
+        public override async Task<BatchReadResult> Read(long fromSequenceNr, long toSequenceNr, int max,
+            string aggregateId)
         {
             using var cancellation = new CancellationTokenSource(Settings.ReadTimeout);
-            return await Task.Run(() => ReadSync(fromSequenceNr, toSequenceNr, aggregateIdMap.NumericId(aggregateId), max, int.MaxValue, _ => true), cancellation.Token);
+            return await Task.Run(
+                () => ReadSync(fromSequenceNr, toSequenceNr, aggregateIdMap.NumericId(aggregateId), max, int.MaxValue,
+                    _ => true), cancellation.Token);
         }
 
-        public override async Task<BatchReadResult> ReplicationRead(long fromSequenceNr, long toSequenceNr, int max, int scanLimit, Func<DurableEvent, bool> filter)
+        public override async Task<BatchReadResult> ReplicationRead(long fromSequenceNr, long toSequenceNr, int max,
+            int scanLimit, Func<DurableEvent, bool> filter)
         {
             using var cancellation = new CancellationTokenSource(Settings.ReadTimeout);
-            return await Task.Run(() => ReadSync(fromSequenceNr, toSequenceNr, EventKey.DefaultClassifier, max, scanLimit, filter), cancellation.Token);
+            return await Task.Run(
+                () => ReadSync(fromSequenceNr, toSequenceNr, EventKey.DefaultClassifier, max, scanLimit, filter),
+                cancellation.Token);
         }
 
         private BatchReadResult ReadSync(long fromSequenceNr, long toSequenceNr, int classifier, int max, int scanLimit,
@@ -282,24 +303,25 @@ namespace Eventuate.Rocks
                     last = e.LocalSequenceNr;
                 }
             }
-                
+
             return new BatchReadResult(events, last);
         }
 
-        public override async Task Write(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock, IActorContext context)
+        public override async Task Write(IReadOnlyCollection<DurableEvent> events, long partition, EventLogClock clock,
+            IActorContext context)
         {
             using var batch = new WriteBatch();
             foreach (var e in events)
             {
                 var sequenceNr = e.LocalSequenceNr;
                 var eventBytes = serialization.Serialize(e);
-                    
+
                 batch.Put(EventKey.ToBytes(EventKey.DefaultClassifier, sequenceNr), eventBytes);
                 foreach (var id in e.CustomDestinationAggregateIds)
                 {
                     batch.Put(EventKey.ToBytes(aggregateIdMap.NumericId(id), sequenceNr), eventBytes);
                 }
-                    
+
                 updateCount++;
             }
 
@@ -335,7 +357,8 @@ namespace Eventuate.Rocks
         {
             var adjusted = Math.Min(ReadEventLogClockSnapshot().SequenceNr, toSequenceNr);
             var promise = new TaskCompletionSource<long>();
-            Context.ActorOf(RocksDbDeletionActor.Props(db, readOptions, writeOptions, Settings.DeletionBatchSize, adjusted, promise));
+            Context.ActorOf(RocksDbDeletionActor.Props(db, readOptions, writeOptions, Settings.DeletionBatchSize,
+                adjusted, promise));
             return promise.Task;
         }
 
@@ -353,7 +376,8 @@ namespace Eventuate.Rocks
         public override async Task<RocksDbLogState> RecoverState()
         {
             var clock = ReadEventLogClockSnapshot();
-            using var enumerator = new EventEnumerator(db, clock.SequenceNr + 1L, EventKey.DefaultClassifier, deserializeEvent);
+            using var enumerator =
+                new EventEnumerator(db, clock.SequenceNr + 1L, EventKey.DefaultClassifier, deserializeEvent);
             while (enumerator.MoveNext())
             {
                 clock = clock.Update(enumerator.Current);
@@ -367,15 +391,16 @@ namespace Eventuate.Rocks
             var x = db.Get(clockKeyBytes);
             return (x is null)
                 ? EventLogClock.Empty
-                : (EventLogClock)serialization.FindSerializerFor(typeof(EventLogClock)).FromBinary(x, typeof(EventLogClock));
+                : (EventLogClock) serialization.FindSerializerFor(typeof(EventLogClock))
+                    .FromBinary(x, typeof(EventLogClock));
         }
 
         protected override void PreStart()
         {
             using (var iter = db.NewIterator()) aggregateIdMap.ReadIdMap(iter);
             using (var iter = db.NewIterator()) eventLogIdMap.ReadIdMap(iter);
-            db.Put(EventKey.EndBytes, Array.Empty<byte>());
-            
+            db.Put(EventKey.EndBytes, Array.Empty<byte>(), writeOptions: writeOptions);
+
             base.PreStart();
         }
 
